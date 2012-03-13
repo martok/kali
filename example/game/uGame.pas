@@ -89,6 +89,7 @@ procedure TGame.Render(Sender: TObject; Surface: TSurface);
 var
   i: integer;
 begin
+  FScreen.Caption:= Format('Target: %d  FPS: %f', [FScreen.FrameTarget, FScreen.CurrentFPS]);
   Surface.Clear(clSilver);
   for i:= 0 to 9 do
     Surface.Blit(i * 32, 120, Artwork.Floor);

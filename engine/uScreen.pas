@@ -142,8 +142,6 @@ begin
     QueryPerformanceCounter(FTimeLastCount);
     FFrameCount:= 0;
   end;
-
-  Caption:= Format('Target: %d  FPS: %f', [FrameTarget, CurrentFPS]);
 end;
 
 procedure TScreen.InitSurface;

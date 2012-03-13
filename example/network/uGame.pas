@@ -73,6 +73,7 @@ end;
 
 procedure TGame.Render(Sender: TObject; Surface: TSurface);
 begin
+  FScreen.Caption:= Format('Target: %d  FPS: %f', [FScreen.FrameTarget, FScreen.CurrentFPS]);
   Surface.Clear(clSilver);
   if Assigned(FMenu) then
     FMenu.Render(Surface);
