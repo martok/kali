@@ -121,7 +121,6 @@ type
   end;
 
   TPacket = class
-  private
   protected
     class procedure ParseInbound(Frames: TInboundFrameList; First, Last: Integer; out Params: TCallParams);
     class procedure SerializeParams(Params: array of Variant; Packet: TCmdSeq);
@@ -129,6 +128,9 @@ type
     class function EntityMessage(Entity: TEntityID; Method: Word): TCmdSeq;
     class function EntityCall(Entity: TEntityID; Method: Word): TCmdSeq;
     class function StateTransition(NewState: TServerState): TCmdSeq;
+
+    class procedure Params(var Params: TCallParams; SetNew: array of Variant);
+    class procedure ParamsPush(var Params: TCallParams; New: array of Variant);
   end;
 
 implementation
@@ -299,13 +301,12 @@ begin
 end;
 
 procedure THost.ServerClientDestroy(Sender: TObject; PA: TProtocolAdapter);
-begin              
+begin
   FDestroyedSession:= PA.SessionID;
   FDestroyedState:= TConnectionState(PA.RefObject);
   FDestroyedState.FPA:= nil;
   PA.RefObject:= nil;
 end;
-
 
 { TClient }
 
@@ -581,6 +582,25 @@ class function TPacket.StateTransition(NewState: TServerState): TCmdSeq;
 begin
   Result:= TCmdSeq.Create(NETWORK_VERB_STATE_TRANSITION);
   Result.Add(byte(NewState));
+end;
+
+class procedure TPacket.Params(var Params: TCallParams; SetNew: array of Variant);
+var
+  i: integer;
+begin
+  SetLength(Params, Length(SetNew));
+  for i:= 0 to high(Params) do
+    Params[i]:= SetNew[i];
+end;
+
+class procedure TPacket.ParamsPush(var Params: TCallParams;New: array of Variant);
+var
+  i: integer;
+begin
+  SetLength(Params, Length(Params) + Length(New));
+  for i:= high(New) downto 0 do begin
+    Params[high(Params) - i]:= New[high(New) - i]
+  end;
 end;
 
 end.
