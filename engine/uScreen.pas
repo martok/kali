@@ -2,11 +2,19 @@ unit uScreen;
 
 interface
 
-uses Types, SysUtils, Windows, Forms, Classes, Graphics, uSurface, uUtil;
+uses Types, SysUtils, Windows, Forms, Controls, Classes, Graphics, uSurface, uUtil;
 
 type
   TSurfaceEvent = procedure(Sender: TObject; Surface: TSurface) of object;
   TTickEvent = procedure(Sender: TObject; DT: single) of object;
+
+  TMouseButtons = set of TMouseButton;
+  TMouse = record
+    Hover: boolean;
+    X, Y: integer;
+    Buttons: TMouseButtons;
+    Focused: boolean;
+  end;
 
   TScreen = class(TForm)
   private
@@ -18,12 +26,14 @@ type
       FTimeLastCount,
       FTimeLastFrame: PrecisionTime;
     FFrameCount: Integer;
+    FActualFrame: TRect;
     FWorldTime: double;
     FOnRender: TSurfaceEvent;
     FOnInitSurface: TSurfaceEvent;
     FOnTick: TTickEvent;
     FSurface: TSurface;
     FFullscreen: boolean;
+    FMouse: TMouse;
   protected
     procedure AppIdle(Sender: TObject; var Done: Boolean);
     procedure DoClose(var Action: TCloseAction); override;
@@ -33,6 +43,11 @@ type
     procedure Render;
     procedure Blit;
     procedure KeyDown(var Key: Word; Shift: TShiftState); override;
+    procedure Activate; override;
+    procedure Deactivate; override;
+    procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X: Integer; Y: Integer); override;
+    procedure MouseMove(Shift: TShiftState; X: Integer; Y: Integer); override;
+    procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X: Integer; Y: Integer); override;
   public
     procedure AfterConstruction; override;
     procedure Run;
@@ -46,6 +61,8 @@ type
 
     property WorldTime: Double read FWorldTime;
 
+    property Mouse: TMouse read FMouse;
+
     property OnInitSurface: TSurfaceEvent read FOnInitSurface write FOnInitSurface;
     property OnTick: TTickEvent read FOnTick write FOnTick;
     property OnRender: TSurfaceEvent read FOnRender write FOnRender;
@@ -53,7 +70,7 @@ type
 
 implementation
 
-uses Math, Controls;
+uses Math;
 
 { TScreen }
 
@@ -173,6 +190,7 @@ begin
   SetStretchBltMode(Canvas.Handle, BLACKONWHITE);
   StretchBlt(Canvas.Handle, su.Left, su.Top, su.Right - su.Left, su.Bottom - su.Top,
     FSurface.Canvas.Handle, 0, 0, FSurface.Width, FSurface.Height, SRCCOPY);
+  FActualFrame:= su;
 end;
 
 procedure TScreen.Resize;
@@ -198,13 +216,47 @@ end;
 
 procedure TScreen.KeyDown(var Key: Word; Shift: TShiftState);
 begin
-  inherited;
   if (Key = VK_RETURN) and (shift = [ssAlt]) then begin
     if FFullscreen then
       ExitFullscreen
     else
       GoFullscreen;
+  end else
+    inherited;
+end;
+
+procedure TScreen.Activate;
+begin
+  inherited;
+  FMouse.Focused:= true;
+end;
+
+procedure TScreen.Deactivate;
+begin
+  inherited;
+  FMouse.Focused:= false;
+end;
+
+procedure TScreen.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  inherited;
+  Include(FMouse.Buttons, Button);
+end;
+
+procedure TScreen.MouseMove(Shift: TShiftState; X, Y: Integer);
+begin
+  inherited;
+  FMouse.Hover:= PtInRect(FActualFrame, Point(X,Y));
+  if FMouse.Hover then begin
+    FMouse.X:= (X - FActualFrame.Left) * FSurface.Width div (FActualFrame.Right-FActualFrame.Left);
+    FMouse.Y:= (Y - FActualFrame.Top) * FSurface.Height div (FActualFrame.Bottom-FActualFrame.Top);
   end;
+end;
+
+procedure TScreen.MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  inherited;
+  Exclude(FMouse.Buttons, Button);
 end;
 
 end.
