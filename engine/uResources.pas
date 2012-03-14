@@ -15,6 +15,7 @@ type
 
     function Sprite(ShortName: string): TSprite;
     function CutSprite(ShortName: string; Width, Height: integer): TMultiSprite;
+    function TileSprite(ShortName: string; NumX, NumY: integer): TMultiSprite;
   published
     property Path: string read FPath write SetPath;
   end;
@@ -58,13 +59,39 @@ begin
 end;
 
 function TResources.Sprite(ShortName: string): TSprite;
+var
+  s: TBitmap;
 begin
-  Result:= TSprite.CreateTemplate(LoadGraphic(Qualify(ShortName)));
+  s:= LoadGraphic(Qualify(ShortName));
+  try
+    Result:= TSprite.CreateTemplate(s);
+  finally
+    s.Free;
+  end;
 end;
 
 function TResources.CutSprite(ShortName: string; Width, Height: integer): TMultiSprite;
+var
+  s: TBitmap;
 begin
-  Result:= TMultiSprite.Create(LoadGraphic(Qualify(ShortName)), Width, Height);
+  s:= LoadGraphic(Qualify(ShortName));
+  try
+    Result:= TMultiSprite.Create(s, Width, Height);
+  finally
+    s.Free;
+  end;
+end;
+
+function TResources.TileSprite(ShortName: string; NumX, NumY: integer): TMultiSprite;
+var
+  s: TBitmap;
+begin
+  s:= LoadGraphic(Qualify(ShortName));
+  try
+    Result:= TMultiSprite.Create(s, s.Width div NumX, s.Height div NumY);
+  finally
+    s.Free;
+  end;
 end;
 
 initialization
