@@ -171,6 +171,8 @@ end;
 
 procedure TScreen.Tick(const DT: single);
 begin
+  if not Active then
+    Deactivate;
   if Assigned(FOnTick) then
     FOnTick(Self, DT);
 end;
@@ -242,6 +244,7 @@ end;
 procedure TScreen.Deactivate;
 begin
   inherited;
+  FMouse.Buttons:= [];
   FMouse.Focused:= false;
 end;
 
