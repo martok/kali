@@ -18,11 +18,13 @@ type
   private
     FIsHandshaked: boolean;
     FPA: TProtocolAdapter;
+    function GetID: integer;
   public
     constructor Create(PA: TProtocolAdapter);
   published
     property IsHandshaked: boolean read FIsHandshaked;
     property PA: TProtocolAdapter read FPA;
+    property ID: integer read GetID;
     procedure EntityMessage(Entity: TEntityID; Method: Word; Params: array of Variant);
   end;
   TConnectionStateClass = class of TConnectionState;
@@ -154,6 +156,14 @@ begin
   TPacket.SerializeParams(Params, cmd);
   FPA.Outbound.AddCmdAndFree(cmd);
   FPA.Send();
+end;
+
+function TConnectionState.GetID: integer;
+begin
+  if Assigned(FPA) then
+    Result:= FPA.SessionID
+  else
+    Result:= -1;
 end;
 
 { THost }
