@@ -145,12 +145,22 @@ begin
 end;
 
 procedure TScreen.InitSurface;
+var
+  s: single;
 begin
   FSurface:= TSurface.Create;
   if Assigned(FOnInitSurface) then
     FOnInitSurface(Self, FSurface);
-  ClientWidth:= FSurface.Width;
-  ClientHeight:= FSurface.Height;
+
+  s:= min(800 / FSurface.Width, 600 / FSurface.Height);
+  if s < 1 then begin
+    ClientWidth:= FSurface.Width;
+    ClientHeight:= FSurface.Height;
+  end else begin
+    s:= floor(s);
+    ClientWidth:= trunc(FSurface.Width * s);
+    ClientHeight:= trunc(FSurface.Height * s);
+  end;
 end;
 
 procedure TScreen.Render;
