@@ -14,22 +14,27 @@ const
   ENTITY_ALL = TEntityID(-1);
 
 type
+  THost = class;
   TConnectionState = class
   private
     FIsHandshaked: boolean;
     FPA: TProtocolAdapter;
+    FHost: THost;
     function GetID: integer;
   public
-    constructor Create(PA: TProtocolAdapter);
+    constructor Create(PA: TProtocolAdapter; Host: THost);
   published
     property IsHandshaked: boolean read FIsHandshaked;
     property PA: TProtocolAdapter read FPA;
+    property Host: THost read FHost;
     property ID: integer read GetID;
     procedure EntityMessage(Entity: TEntityID; Method: Word; Params: array of Variant);
   end;
   TConnectionStateClass = class of TConnectionState;
   TConnectionStateList = array of TConnectionState;
 
+  TEntityAddEvent = procedure(Sender: TObject; Connection: TConnectionState; Entity: TEntityID; EntityClass: Cardinal) of object;
+  TEntityRemoveEvent = procedure(Sender: TObject; Connection: TConnectionState; Entity: TEntityID) of object;
   TEntityCallEvent = procedure(Sender: TObject; Connection: TConnectionState; Entity: TEntityID; Method: Word; Params:
     array of Variant) of object;
   TPAStatusEvent = procedure(Sender: TObject; Connection: TConnectionState; PA: TProtocolAdapter) of object;
@@ -66,8 +71,11 @@ type
 
     procedure Listen(Port: Integer);
 
+    property State: TServerState read FServerState;
     procedure StateChange(newState: TServerState);
     function GetAllStates: TConnectionStateList;
+    procedure EntityAdd(Entity: TEntityID; EntityType: Cardinal);
+    procedure EntityRemove(Entity: TEntityID);
     procedure EntityMessage(Entity: TEntityID; Method: Word; Params: array of Variant);
 
     property OnClientConnected: TPAStatusEvent read FOnClientConnected write FOnClientConnected;
@@ -84,10 +92,12 @@ type
     FOnDisconnected: TPANotifyEvent;
     FOnConnected: TPANotifyEvent;
     FOnHandshake: TPAStatusEvent;
-    FOnEntityCall: TEntityCallEvent;
+    FOnEntityMessage: TEntityCallEvent;
     FServerState: TServerState;
     FOnServerStateChange: TNotifyEvent;
     FOnConnectFailed: TConnectErrorEvent;
+    FOnEntityAdd: TEntityAddEvent;
+    FOnEntityRemove: TEntityRemoveEvent;
     procedure ClientConnect(Sender: TObject; PA: TProtocolAdapter);
     procedure ClientDisconnect(Sender: TObject; PA: TProtocolAdapter);
     procedure ClientExecute(Sender: TObject; PA: TProtocolAdapter);
@@ -118,7 +128,9 @@ type
     property OnConnected: TPANotifyEvent read FOnConnected write FOnConnected;
     property OnHandshake: TPAStatusEvent read FOnHandshake write FOnHandshake;
     property OnDisconnected: TPANotifyEvent read FOnDisconnected write FOnDisconnected;
-    property OnEntityCall: TEntityCallEvent read FOnEntityCall write FOnEntityCall;
+    property OnEntityAdd: TEntityAddEvent read FOnEntityAdd write FOnEntityAdd;
+    property OnEntityRemove: TEntityRemoveEvent read FOnEntityRemove write FOnEntityRemove;
+    property OnEntityMessage: TEntityCallEvent read FOnEntityMessage write FOnEntityMessage;
     property OnServerStateChange: TNotifyEvent read FOnServerStateChange write FOnServerStateChange;
   end;
 
@@ -127,6 +139,8 @@ type
     class procedure ParseInbound(Frames: TInboundFrameList; First, Last: Integer; out Params: TCallParams);
     class procedure SerializeParams(Params: array of Variant; Packet: TCmdSeq);
   public
+    class function EntityAdd(Entity: TEntityID; EntityClass: Cardinal): TCmdSeq;
+    class function EntityRemove(Entity: TEntityID): TCmdSeq;
     class function EntityMessage(Entity: TEntityID; Method: Word): TCmdSeq;
     class function EntityCall(Entity: TEntityID; Method: Word): TCmdSeq;
     class function StateTransition(NewState: TServerState): TCmdSeq;
@@ -137,15 +151,16 @@ type
 
 implementation
 
-uses TypInfo, Variants;
+uses TypInfo, Variants, WinSock;
 
 { TConnectionState }
 
-constructor TConnectionState.Create(PA: TProtocolAdapter);
+constructor TConnectionState.Create(PA: TProtocolAdapter; Host: THost);
 begin
   inherited Create;
   FIsHandshaked:= false;
   FPA:= PA;
+  FHost:= Host;
 end;
 
 procedure TConnectionState.EntityMessage(Entity: TEntityID; Method: Word; Params: array of Variant);
@@ -205,7 +220,7 @@ begin
     PA.Send;
     PA.Disconnect;
   end else begin
-    PA.RefObject:= FUserDataClass.Create(PA);
+    PA.RefObject:= FUserDataClass.Create(PA, Self);
     PA.OwnsRefObject:= true;
     DoClientConnected(PA);
     cmd:= TCmdSeq.Create(NETWORK_VERB_HANDSHAKE);
@@ -258,6 +273,22 @@ procedure THost.DoClientConnected(PA: TProtocolAdapter);
 begin
   if Assigned(FOnClientConnected) then
     FOnClientConnected(Self, TConnectionState(PA.RefObject), PA);
+end;
+
+procedure THost.EntityAdd(Entity: TEntityID; EntityType: Cardinal);
+var
+  cmd: TCmdSeq;
+begin
+  cmd:= TPacket.EntityAdd(Entity, EntityType);
+  FServer.Broadcast(cmd, [boImmediate, boFreeCmd]);
+end;
+
+procedure THost.EntityRemove(Entity: TEntityID);
+var
+  cmd: TCmdSeq;
+begin
+  cmd:= TPacket.EntityRemove(Entity);
+  FServer.Broadcast(cmd, [boImmediate, boFreeCmd]);
 end;
 
 procedure THost.EntityMessage(Entity: TEntityID; Method: Word; Params: array of Variant);
@@ -351,7 +382,7 @@ procedure TClient.ClientConnect(Sender: TObject; PA: TProtocolAdapter);
 var
   cmd: TCmdSeq;
 begin
-  PA.RefObject:= FUserDataClass.Create(PA);
+  PA.RefObject:= FUserDataClass.Create(PA, nil);
   PA.OwnsRefObject:= true;
   DoConnected(PA);
   cmd:= TCmdSeq.Create(NETWORK_VERB_HANDSHAKE);
@@ -370,6 +401,7 @@ var
   conn: TConnectionState;
   cmd: TCmdSeq;
   e: TEntityID;
+  t: Cardinal;
   m: Word;
   p: TCallParams;
 begin
@@ -396,12 +428,25 @@ begin
             if Assigned(FOnServerStateChange) then
               FOnServerStateChange(Self);
           end;
+        NETWORK_VERB_ENTITY_ADD: begin
+            if Assigned(FOnEntityAdd) then begin
+              e:= PA.Inbound.AsCardinal[1];
+              t:= PA.Inbound.AsCardinal[2];
+              FOnEntityAdd(Self, Conn, e, t);
+            end;
+          end;
+        NETWORK_VERB_ENTITY_REMOVE: begin
+            if Assigned(FOnEntityRemove) then begin
+              e:= PA.Inbound.AsCardinal[1];
+              FOnEntityRemove(Self, Conn, e);
+            end;
+          end;
         NETWORK_VERB_ENTITY_MESSAGE: begin
-            if Assigned(FOnEntityCall) then begin
+            if Assigned(FOnEntityMessage) then begin
               e:= PA.Inbound.AsCardinal[1];
               m:= PA.Inbound.AsWord[2];
               TPacket.ParseInbound(PA.Inbound, 3, PA.CurrentArgCount - 1, p);
-              FOnEntityCall(Self, Conn, e, m, p);
+              FOnEntityMessage(Self, Conn, e, m, p);
             end;
           end;
       end;
@@ -581,6 +626,19 @@ begin
   Result.Add(Method);
 end;
 
+class function TPacket.EntityAdd(Entity: TEntityID; EntityClass: Cardinal): TCmdSeq;
+begin
+  Result:= TCmdSeq.Create(NETWORK_VERB_ENTITY_ADD);
+  Result.Add(Entity);
+  Result.Add(EntityClass);
+end;
+
+class function TPacket.EntityRemove(Entity: TEntityID): TCmdSeq;
+begin
+  Result:= TCmdSeq.Create(NETWORK_VERB_ENTITY_REMOVE);
+  Result.Add(Entity);
+end;
+
 class function TPacket.EntityMessage(Entity: TEntityID; Method: Word): TCmdSeq;
 begin
   Result:= TCmdSeq.Create(NETWORK_VERB_ENTITY_MESSAGE);
@@ -603,7 +661,7 @@ begin
     Params[i]:= SetNew[i];
 end;
 
-class procedure TPacket.ParamsPush(var Params: TCallParams;New: array of Variant);
+class procedure TPacket.ParamsPush(var Params: TCallParams; New: array of Variant);
 var
   i: integer;
 begin
