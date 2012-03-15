@@ -308,8 +308,8 @@ begin
   Surface.Blit(FPosition.Right - FGUI.FArt[2, 0].Width, FPosition.Top, FGUI.FArt[2, 0]);
 
   t:= Caption;
-  if FFocused then
-    t:= t + '|';
+  if FFocused and ((trunc(FGUI.FScreen.WorldTime / 0.6) mod 2) = 0) then
+    t:= t + '_';
 
   c:= Surface.Canvas.TextExtent(t);
   p:= FPosition;
