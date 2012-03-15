@@ -2,7 +2,7 @@ unit uHostThread;
 
 interface
 
-uses Windows, Messages, SysUtils, Classes, MessageThread, uScreen, uNetworking, uUtil;
+uses Windows, Messages, SysUtils, Classes, MessageThread, uScreen, uNetworking, uUtil, SyncObjs;
 
 const
   HTM_IDLE = WM_USER + 1234;                                // posted to self & re-posted ad inf
@@ -10,7 +10,6 @@ const
   // "after anything else is done", aka where we would idle
   // just be sure to always sleep off some time in the message handler or this is
   // effectively busywaiting!
-  HTM_BEFORESTART = WM_USER + 1235;                         // fire OnBeforeStart-Event
 
 type
   THostThread = class(TMessageThread)
@@ -27,14 +26,15 @@ type
     FOnTick: TTickEvent;
   protected
     FHost: THost;
+    FStartEvent: TEvent;
     procedure BeforeExecute; override;
     procedure AfterExecute; override;
     procedure Tick(DT: single);
     procedure Idle(SelfSourced: boolean); virtual;
     procedure HTMIdle(var Msg: TMessage); message HTM_IDLE;
-    procedure HTMBeforeStart(var Msg: TMessage); message HTM_BEFORESTART;
   public
     constructor Create;
+    procedure Start;
     property FrameTarget: integer read FFrameTarget write FFrameTarget;
     property CurrentFPS: single read FFPS;
 
@@ -51,7 +51,7 @@ implementation
 
 constructor THostThread.Create;
 begin
-  FHost:= THost.Create(nil);
+  FStartEvent:= TEvent.Create(nil, false, false, '');
   FFrameTarget:= 60;
   inherited;
 end;
@@ -59,7 +59,11 @@ end;
 procedure THostThread.BeforeExecute;
 begin
   inherited;
-  PostMessage(Handle, HTM_BEFORESTART, 1, 0);
+  FHost:= THost.Create(nil);
+
+  FStartEvent.WaitFor(INFINITE);
+  if Assigned(FOnBeforeStart) then
+    FOnBeforeStart(Self);
   PostMessage(Handle, HTM_IDLE, 1, 0);
 
   QueryPerformanceCounter(FTimeStart);
@@ -118,10 +122,9 @@ begin
     FOnTick(Self, DT);
 end;
 
-procedure THostThread.HTMBeforeStart(var Msg: TMessage);
+procedure THostThread.Start;
 begin
-  if Assigned(FOnBeforeStart) then
-    FOnBeforeStart(Self);
+  FStartEvent.SetEvent;
 end;
 
 end.
