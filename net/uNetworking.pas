@@ -204,10 +204,14 @@ begin
 end;
 
 procedure THost.Listen(Port: Integer);
+var
+  flag: integer;
 begin
   FServerState:= ssLobby;
   FServer.Port:= Port;
   FServer.Open;
+  flag:= 1;
+  setsockopt(FServer.Socket.SocketHandle, IPPROTO_TCP, TCP_NODELAY, @flag, sizeof(flag));
 end;
 
 procedure THost.ServerClientConnect(Sender: TObject; PA: TProtocolAdapter);
@@ -381,7 +385,12 @@ end;
 procedure TClient.ClientConnect(Sender: TObject; PA: TProtocolAdapter);
 var
   cmd: TCmdSeq;
+//  flag: integer;
 begin
+//TODO wie zum henker komm ich an den client socket
+//  flag:= 1;
+//  setsockopt(FClient.Socket.SocketHandle, IPPROTO_TCP, TCP_NODELAY, @flag, sizeof(flag));
+
   PA.RefObject:= FUserDataClass.Create(PA, nil);
   PA.OwnsRefObject:= true;
   DoConnected(PA);
