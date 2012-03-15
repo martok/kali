@@ -285,7 +285,7 @@ begin
     else
       Caption:= Caption + Key;
     end;
-    if t<>Caption then
+    if t <> Caption then
       Changed;
   end else
     inherited;
@@ -317,7 +317,10 @@ begin
   p:= FPosition;
   InflateRect(p, -2, -2);
 
-  Surface.Canvas.Font.Color:= FGUI.Color[ceText];
+  if FEnabled then
+    Surface.Canvas.Font.Color:= FGUI.Color[ceText]
+  else
+    Surface.Canvas.Font.Color:= FGUI.Color[ceDisabled];
   Surface.Canvas.Font.Size:= 16;
   Surface.Canvas.TextOut(p.Left, p.Top - 3, t);
 end;
