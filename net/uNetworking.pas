@@ -385,11 +385,10 @@ end;
 procedure TClient.ClientConnect(Sender: TObject; PA: TProtocolAdapter);
 var
   cmd: TCmdSeq;
-//  flag: integer;
+  flag: integer;
 begin
-//TODO wie zum henker komm ich an den client socket
-//  flag:= 1;
-//  setsockopt(FClient.Socket.SocketHandle, IPPROTO_TCP, TCP_NODELAY, @flag, sizeof(flag));
+  flag:= 1;
+  setsockopt(PA.Socket.SocketHandle, IPPROTO_TCP, TCP_NODELAY, @flag, sizeof(flag));
 
   PA.RefObject:= FUserDataClass.Create(PA, nil);
   PA.OwnsRefObject:= true;
