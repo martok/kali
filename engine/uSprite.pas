@@ -37,6 +37,8 @@ const
 
 implementation
 
+uses uLogger;
+
 { TSprite }
 
 constructor TSprite.Create;
@@ -53,8 +55,19 @@ begin
   Create;
   Width:= SourceBitmap.Width;
   Height:= SourceBitmap.Height;
-  BitBlt(Canvas.Handle, 0, 0, Width, Height, SourceBitmap.Canvas.Handle, 0, 0, SRCCOPY);
-  Changed(Self);
+  Canvas.Lock;
+  try
+    SourceBitmap.Canvas.Lock;
+    try
+      GetLogger.Log('TSprite', 'Handle: %x, WxH: %dx%d', [Canvas.Handle, Width, Height]);
+      BitBlt(Canvas.Handle, 0, 0, Width, Height, SourceBitmap.Canvas.Handle, 0, 0, SRCCOPY);
+      Changed(Self);
+    finally
+      SourceBitmap.Canvas.Unlock;
+    end;
+  finally
+    Canvas.Unlock;
+  end;
 end;
 
 procedure TSprite.Changed(Sender: TObject);

@@ -35,7 +35,7 @@ type
     procedure SetFocus(Widget: TInput);
 
     procedure UpdateAndRender(Surface: TSurface);
-    procedure KeyDown(Key: Word);
+    procedure KeyDown(var Key: Word);
     procedure KeyPress(Key: Char);
   end;
 
@@ -49,8 +49,8 @@ type
   public
     constructor Create(GUI: TGUI);
     procedure Render(Surface: TSurface); virtual;
-    procedure KeyDown(Key: Word); virtual;
-    procedure KeyPress(Key: Char); virtual;
+    procedure KeyDown(var Key: Word); virtual;
+    procedure KeyPress(var Key: Char); virtual;
 
     property ID: integer read FID write FID;
     property Position: TRect read FPosition write SetPosition;
@@ -70,16 +70,19 @@ type
     property OnClick: TNotifyEvent read FOnClick write FOnClick;
   end;
 
+  TKeyEvent = procedure (Sender: TObject; var Key: char) of object;
   TInput = class(TClickable)
   private
     FFocused: boolean;
     FOnChange: TNotifyEvent;
+    FOnKeyPress: TKeyEvent;
   protected
     procedure Changed; virtual;
   public
     procedure Render(Surface: TSurface); override;
-    procedure KeyPress(Key: Char); override;
+    procedure KeyPress(var Key: Char); override;
     property OnChange: TNotifyEvent read FOnChange write FOnChange;
+    property OnKeyPress: TKeyEvent read FOnKeyPress write FOnKeyPress;
   end;
 
 implementation
@@ -108,7 +111,7 @@ begin
   FControls.Clear;
 end;
 
-procedure TGUI.KeyDown(Key: Word);
+procedure TGUI.KeyDown(var Key: Word);
 var
   i: integer;
 begin
@@ -201,11 +204,11 @@ begin
   FEnabled:= true;
 end;
 
-procedure TWidget.KeyDown(Key: Word);
+procedure TWidget.KeyDown(var Key: Word);
 begin
 end;
 
-procedure TWidget.KeyPress(Key: Char);
+procedure TWidget.KeyPress(var Key: Char);
 begin
 end;
 
@@ -272,12 +275,13 @@ begin
     FOnChange(Self);
 end;
 
-procedure TInput.KeyPress(Key: Char);
+procedure TInput.KeyPress(var Key: Char);
 var
   t: string;
 begin
   if FFocused then begin
     t:= Caption;
+    if Assigned(FOnKeyPress) then FOnKeyPress(Self, Key);
     case Key of
       #0..#7: ;
       #8: Caption:= Copy(Caption, 1, Length(Caption) - 1);
@@ -317,6 +321,7 @@ begin
   p:= FPosition;
   InflateRect(p, -2, -2);
 
+  Surface.Canvas.Brush.Style:= bsClear;
   if FEnabled then
     Surface.Canvas.Font.Color:= FGUI.Color[ceText]
   else

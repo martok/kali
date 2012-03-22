@@ -37,6 +37,7 @@ type
     procedure Start;
     property FrameTarget: integer read FFrameTarget write FFrameTarget;
     property CurrentFPS: single read FFPS;
+    property WorldTime: Double read FWorldTime;
 
     property Host: THost read FHost;
 
