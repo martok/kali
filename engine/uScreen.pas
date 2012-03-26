@@ -13,6 +13,7 @@ type
     Hover: boolean;
     X, Y: integer;
     Buttons: TMouseButtons;
+    Wheel: integer;
     Focused: boolean;
   end;
 
@@ -48,6 +49,7 @@ type
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X: Integer; Y: Integer); override;
     procedure MouseMove(Shift: TShiftState; X: Integer; Y: Integer); override;
     procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X: Integer; Y: Integer); override;
+    function DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean; override;
   public
     procedure AfterConstruction; override;
     procedure Run;
@@ -142,6 +144,7 @@ begin
     QueryPerformanceCounter(FTimeLastCount);
     FFrameCount:= 0;
   end;
+  FMouse.Wheel:= 0;
 end;
 
 procedure TScreen.InitSurface;
@@ -268,6 +271,16 @@ procedure TScreen.MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Intege
 begin
   inherited;
   Exclude(FMouse.Buttons, Button);
+end;
+
+function TScreen.DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean;
+begin
+  if WheelDelta>0 then
+    inc(FMouse.Wheel)
+  else
+  if WheelDelta<0 then
+    dec(FMouse.Wheel);
+  Result:= inherited DoMouseWheel(Shift, WheelDelta,MousePos);
 end;
 
 end.
