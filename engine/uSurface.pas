@@ -5,6 +5,9 @@ interface
 uses Windows, Types, SysUtils, Graphics, uSprite;
 
 type
+  TTextVAlign = (vaTop, vaBottom, vaMiddle);
+  TTextHAlign = (haLeft, haRight, haCenter);
+
   TSurface = class(TBitmap)
   private
     function GetData(X, Y: Cardinal): PCardinal;
@@ -14,6 +17,7 @@ type
     constructor Create; override;
     procedure Clear(Color: TColor);
     procedure Blit(X, Y: integer; Graphic: TSprite);
+    procedure TextAlign(X, Y: integer; Text: string; Vertical: TTextVAlign; Horizontal: TTextHAlign);
     property Pixel[X, Y: integer]: TColor read GetPixel write SetPixel;
   end;
 
@@ -54,6 +58,23 @@ end;
 function TSurface.GetData(X, Y: Cardinal): PCardinal;
 begin
   Result:= PCardinal(Cardinal(Scanline[Y]) + X * sizeof(Cardinal));
+end;
+
+procedure TSurface.TextAlign(X, Y: integer; Text: string; Vertical: TTextVAlign; Horizontal: TTextHAlign);
+var cc: TSize;
+begin
+  cc:= Canvas.TextExtent(Text);
+  case Vertical of
+    vaTop: ;
+    vaBottom: dec(Y, cc.cy);
+    vaMiddle: dec(Y, cc.cy div 2);
+  end;
+  case Horizontal of
+    haLeft: ;
+    haRight: dec(X, cc.cx);
+    haCenter: dec(X, cc.cx div 2);
+  end;
+  Canvas.TextOut(X, Y, Text);
 end;
 
 end.
