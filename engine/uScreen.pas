@@ -174,8 +174,10 @@ end;
 
 procedure TScreen.Tick(const DT: single);
 begin
-  if not Active then
+  if Mouse.Focused and not Active then
     Deactivate;
+  if not Mouse.Focused and Active then
+    Activate;
   if Assigned(FOnTick) then
     FOnTick(Self, DT);
 end;
