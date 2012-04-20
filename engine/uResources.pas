@@ -1,3 +1,10 @@
+{
+Kali Engine (C) Martok
+https://github.com/martok/kali/
+-----------------------------------------------------------------------
+For copyright information see file license.txt.
+}
+
 unit uResources;
 
 interface
