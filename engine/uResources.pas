@@ -23,6 +23,8 @@ type
     function Sprite(ShortName: string): TSprite;
     function CutSprite(ShortName: string; Width, Height: integer): TMultiSprite;
     function TileSprite(ShortName: string; NumX, NumY: integer): TMultiSprite;
+
+    function Font(ShortName: string): TFontName;
   published
     property Path: string read FPath write SetPath;
   end;
@@ -32,7 +34,7 @@ var
 
 implementation
 
-uses Classes;
+uses Classes, uTTFUtils;
 
 { TResources }
 
@@ -98,6 +100,22 @@ begin
     Result:= TMultiSprite.Create(s, s.Width div NumX, s.Height div NumY);
   finally
     s.Free;
+  end;
+end;
+
+function TResources.Font(ShortName: string): TFontName;
+var
+  ms: TMemoryStream;
+  cn: dword;
+begin
+  Result:= '';
+  ms:= TMemoryStream.Create;
+  try
+    ms.LoadFromFile(Qualify(ShortName));
+    Result:= GetTTFontFullNameFromStream(ms, GetCurrentLocale);
+    AddFontMemResourceEx(ms.Memory, ms.Size, nil, @cn);
+  finally
+    ms.Free;
   end;
 end;
 
