@@ -22,7 +22,7 @@ type
     procedure NetHandshake(Sender: TObject; Conn: TConnectionState; PA: TProtocolAdapter);
     procedure NetConnectFail(Sender: TObject; PA: TProtocolAdapter; Reason: TConnectError; ErrorCode: integer);
     procedure NetDisconnected(Sender: TObject; PA: TProtocolAdapter);
-    procedure NetEntityCall(Sender: TObject; Connection: TConnectionState; Entity: TEntityID; Method: Word; Params: array of Variant);
+    procedure NetEntityMessage(Sender: TObject; Connection: TConnectionState; Entity: TEntityID; Method: Word; Params: array of Variant);
     procedure NetServerStateChange(Sender: TObject);
   public
     constructor Create(Screen: TScreen);
@@ -121,7 +121,7 @@ begin
   FClient.OnHandshake:= NetHandshake;  
   FClient.OnConnectFailed:= NetConnectFail;
   FClient.OnDisconnected:= NetDisconnected;
-  FClient.OnEntityCall:= NetEntityCall;
+  FClient.OnEntityMessage:= NetEntityMessage;
   FClient.OnServerStateChange:= NetServerStateChange;
   FClient.Connect(Host, NET_PORT);
 end;
@@ -135,7 +135,7 @@ begin
     Add('Exit');
 end;
 
-procedure TGame.NetEntityCall(Sender: TObject; Connection: TConnectionState; Entity: TEntityID; Method: Word; Params: array of Variant);
+procedure TGame.NetEntityMessage(Sender: TObject; Connection: TConnectionState; Entity: TEntityID; Method: Word; Params: array of Variant);
   procedure ReMenu;
   begin
     FreeAndNil(FMenu);

@@ -41,17 +41,17 @@ constructor TGameHost.Create(Thread: THostThread);
 begin
   inherited Create;
   FHost:= Thread;
-  FHost.Host.UserDataClass:= TChatUser;
   FHost.OnBeforeStart:= ThreadBeforeStart;
   FHost.OnAfterEnd:= ThreadAfterEnd;
-  FHost.Host.OnCallEntity:= HostCallEntity;
-  FHost.Host.OnClientDisconnect:= HostClientDisconnected;
-  FHost.Host.Listen(NET_PORT);
+  FHost.Start;
 end;
 
 procedure TGameHost.ThreadBeforeStart(Sender: TObject);
 begin
-  //
+  FHost.Host.UserDataClass:= TChatUser;
+  FHost.Host.OnCallEntity:= HostCallEntity;
+  FHost.Host.OnClientDisconnect:= HostClientDisconnected;
+  FHost.Host.Listen(NET_PORT);
 end;
 
 procedure TGameHost.ThreadAfterEnd(Sender: TObject);

@@ -526,32 +526,41 @@ end;
 class procedure TPacket.ParseInbound(Frames: TInboundFrameList; First, Last: Integer; out Params: TCallParams);
 var
   types: string;
-  i, k: integer;
+  i, ib: integer;
+
+  function Consume: integer;
+  begin
+    if ib < Last then begin
+      Result:= ib;
+      inc(ib);
+    end else
+      raise EVariantInvalidArgError.CreateFmt('No data available for %s at %d', [types[i+1], ib]);
+  end;
+
 begin
   types:= Frames.Strings[Last];
-  k:= 0;
-  for i:= First to last - 1 do begin
-    SetLength(Params, k + 1);
-    case types[1 + i - First] of
-      'N': Params[k]:= Null;
-      's': Params[k]:= Frames.Strings[i];
-      'S': Params[k]:= UTF8Decode(Frames.Strings[i]);
-      'f': Params[k]:= Frames.AsSingle[i];
-      'd': Params[k]:= Frames.AsDouble[i];
-      'D': Params[k]:= Frames.AsDateTime[i];
-      'c': Params[k]:= Frames.AsCurrency[i];
-      'B': Params[k]:= ShortInt(Frames.AsByte[i]);
-      'b': Params[k]:= Frames.AsByte[i];
-      'W': Params[k]:= SmallInt(Frames.AsWord[i]);
-      'w': Params[k]:= Frames.AsWord[i];
-      'I': Params[k]:= Frames.AsInt[i];
-      'i': Params[k]:= Frames.AsCardinal[i];
-      '6': Params[k]:= Frames.AsInt64[i];
-      'L': Params[k]:= Frames.AsBoolean[i];
+  SetLength(Params, length(types));
+  ib:= First;
+  for i:= 0 to length(types)-1 do begin
+    case types[i+1] of
+      'N': Params[i]:= Null;
+      's': Params[i]:= Frames.Strings[Consume];
+      'S': Params[i]:= UTF8Decode(Frames.Strings[Consume]);
+      'f': Params[i]:= Frames.AsSingle[Consume];
+      'd': Params[i]:= Frames.AsDouble[Consume];
+      'D': Params[i]:= Frames.AsDateTime[Consume];
+      'c': Params[i]:= Frames.AsCurrency[Consume];
+      'B': Params[i]:= ShortInt(Frames.AsByte[Consume]);
+      'b': Params[i]:= Frames.AsByte[Consume];
+      'W': Params[i]:= SmallInt(Frames.AsWord[Consume]);
+      'w': Params[i]:= Frames.AsWord[Consume];
+      'I': Params[i]:= Frames.AsInt[Consume];
+      'i': Params[i]:= Frames.AsCardinal[Consume];
+      '6': Params[i]:= Frames.AsInt64[Consume];
+      'L': Params[i]:= Frames.AsBoolean[Consume];
     else
-      raise EVariantInvalidArgError.CreateFmt('Unknown transferred type: %s', [types[1 + i - First]]);
+      raise EVariantInvalidArgError.CreateFmt('Unknown transferred type: %s', [types[i+1]]);
     end;
-    inc(k);
   end;
 end;
 
