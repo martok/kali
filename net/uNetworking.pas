@@ -36,6 +36,7 @@ type
     property Host: THost read FHost;
     property ID: integer read GetID;
     procedure EntityMessage(Entity: TEntityID; Method: Word; Params: array of Variant);
+    procedure EntityMessageFast(Entity: TEntityID; Method: Word; Params: array of Variant);
   end;
   TConnectionStateClass = class of TConnectionState;
   TConnectionStateList = array of TConnectionState;
@@ -142,13 +143,16 @@ type
   end;
 
   TPacket = class
+  private
   protected
-    class procedure ParseInbound(Frames: TInboundFrameList; First, Last: Integer; out Params: TCallParams);
-    class procedure SerializeParams(Params: array of Variant; Packet: TCmdSeq);
+    class procedure ParseInbound(Frames: TInboundFrameList; Types: string; Data: string; out Params: TCallParams);
+    class procedure SerializeParams(Params: array of Variant; Packet: TCmdSeq); overload;
+    class procedure SerializeParams(Params: array of Variant; out Types, Data: string); overload;
   public
     class function EntityAdd(Entity: TEntityID; EntityClass: Cardinal): TCmdSeq;
     class function EntityRemove(Entity: TEntityID): TCmdSeq;
     class function EntityMessage(Entity: TEntityID; Method: Word): TCmdSeq;
+    class function EntityMessageFast(Entity: TEntityID; Method: Word; Types, Data: string): TCmdSeq;
     class function EntityCall(Entity: TEntityID; Method: Word): TCmdSeq;
     class function StateTransition(NewState: TServerState): TCmdSeq;
 
@@ -158,7 +162,7 @@ type
 
 implementation
 
-uses TypInfo, Variants, WinSock;
+uses TypInfo, Variants, WinSock, uUtil;
 
 { TConnectionState }
 
@@ -176,6 +180,22 @@ var
 begin
   cmd:= TPacket.EntityMessage(Entity, Method);
   TPacket.SerializeParams(Params, cmd);
+  FPA.Outbound.AddCmdAndFree(cmd);
+  FPA.Send();
+end;
+
+procedure TConnectionState.EntityMessageFast(Entity: TEntityID; Method: Word; Params: array of Variant);
+var
+  cmd: TCmdSeq;
+  tt, dd: string;
+  pp: TCallParams;
+  i: integer;
+begin
+  SetLength(pp, length(Params));
+  for i:= 0 to high(pp) do
+    pp[i]:= VarCompress(Params[i], true);
+  TPacket.SerializeParams(pp, tt, dd);
+  cmd:= TPacket.EntityMessageFast(Entity, Method, tt, dd);
   FPA.Outbound.AddCmdAndFree(cmd);
   FPA.Send();
 end;
@@ -272,7 +292,7 @@ begin
           if Assigned(FOnCallEntity) then begin
             e:= PA.Inbound.AsCardinal[1];
             m:= PA.Inbound.AsWord[2];
-            TPacket.ParseInbound(PA.Inbound, 3, PA.CurrentArgCount - 1, p);
+            TPacket.ParseInbound(PA.Inbound, PA.Inbound.Strings[3], PA.Inbound.Strings[4], p);
             FOnCallEntity(Self, Conn, e, m, p);
           end;
         end;
@@ -331,7 +351,6 @@ end;
 function THost.GetAllStates: TConnectionStateList;
 var
   i, k: integer;
-
 begin
   SetLength(Result, FServer.Connections.Count);
   k:= 0;
@@ -419,6 +438,28 @@ var
   t: Cardinal;
   m: Word;
   p: TCallParams;
+
+  procedure HandleFast;
+  var
+    d: TStringStream;
+    c: byte;
+    t, dd: string;
+  begin
+    d:= TStringStream.Create(PA.Inbound.Strings[1]);
+    try
+      d.Read(e, sizeof(e));
+      d.Read(m, sizeof(m));
+      d.Read(c, sizeof(c));
+      SetLength(t, c);
+      d.Read(t[1], c);
+      SetLength(dd, d.Size-d.Position);
+      d.Read(dd[1], Length(dd));
+      TPacket.ParseInbound(PA.Inbound, t, dd, p);
+      FOnEntityMessage(Self, Conn, e, m, p);
+    finally
+      d.Free;
+    end;
+  end;
 begin
   verb:= PA.CurrentToken;
   conn:= TConnectionState(PA.RefObject);
@@ -460,8 +501,13 @@ begin
             if Assigned(FOnEntityMessage) then begin
               e:= PA.Inbound.AsCardinal[1];
               m:= PA.Inbound.AsWord[2];
-              TPacket.ParseInbound(PA.Inbound, 3, PA.CurrentArgCount - 1, p);
+              TPacket.ParseInbound(PA.Inbound, PA.Inbound.Strings[3], PA.Inbound.Strings[4], p);
               FOnEntityMessage(Self, Conn, e, m, p);
+            end;
+          end;
+        NETWORK_VERB_ENTITY_MESSAGE_FAST: begin
+            if Assigned(FOnEntityMessage) then begin
+              HandleFast;
             end;
           end;
       end;
@@ -523,124 +569,200 @@ end;
 
 { TPacket }
 
-class procedure TPacket.ParseInbound(Frames: TInboundFrameList; First, Last: Integer; out Params: TCallParams);
+class procedure TPacket.ParseInbound(Frames: TInboundFrameList; Types: string; Data: string; out Params: TCallParams);
 var
-  types: string;
-  i, ib: integer;
+  i: integer;
+  dat: TStringStream;
+  c: Cardinal;
+  str: string;
+  sin: Single;
+  dou: Double;
+  cur: Currency;
+  byt: Byte;
+  wor: Word;
+  int: Integer;
+  car: Cardinal;
+  in6: int64;
+  boo: boolean;
+begin
+  SetLength(Params, length(types));
+  dat:= TStringStream.Create(Data);
+  try
+    for i:= 0 to length(types) - 1 do begin
+      case types[i + 1] of
+        'N': Params[i]:= Null;
+        's': begin
+            dat.Read(c, sizeof(c));
+            SetLength(str, c);
+            dat.Read(str[1], c);
+            Params[i]:= str;
+          end;
+        'S': begin
+            dat.Read(c, sizeof(c));
+            SetLength(str, c);
+            dat.Read(str[1], c);
+            Params[i]:= UTF8Decode(str);
+          end;
+        'f': begin
+            dat.Read(sin, sizeof(sin));
+            Params[i]:= sin;
+          end;
+        'd': begin
+            dat.Read(dou, sizeof(dou));
+            Params[i]:= dou;
+          end;
+        'D': begin
+            dat.Read(dou, sizeof(dou));
+            Params[i]:= TDateTime(dou);
+          end;
+        'c': begin
+            dat.Read(cur, sizeof(cur));
+            Params[i]:= cur;
+          end;
+        'B': begin
+            dat.Read(byt, sizeof(byt));
+            Params[i]:= ShortInt(byt);
+          end;
+        'b': begin
+            dat.Read(byt, sizeof(byt));
+            Params[i]:= byt;
+          end;
+        'W': begin
+            dat.Read(wor, sizeof(wor));
+            Params[i]:= SmallInt(wor);
+          end;
+        'w': begin
+            dat.Read(wor, sizeof(wor));
+            Params[i]:= wor;
+          end;
+        'I': begin
+            dat.Read(int, sizeof(int));
+            Params[i]:= int;
+          end;
+        'i': begin
+            dat.Read(car, sizeof(car));
+            Params[i]:= car;
+          end;
+        '6': begin
+            dat.Read(in6, sizeof(in6));
+            Params[i]:= in6;
+          end;
+        'L': begin
+            dat.Read(boo, sizeof(boo));
+            Params[i]:= boo;
+          end;
+      else
+        raise EVariantInvalidArgError.CreateFmt('Unknown transferred type: %s', [types[i + 1]]);
+      end;
+    end;
+  finally
+    dat.Free;
+  end;
+end;
 
-  function Consume: integer;
+class procedure TPacket.SerializeParams(Params: array of Variant; out Types, Data: string);
+var
+  dat: TStringStream;
+  i: integer;
+  b: boolean;
+  v: TVarData;
+
+  procedure WriteStr(const S: string);
+  var
+    c: cardinal;
   begin
-    if ib < Last then begin
-      Result:= ib;
-      inc(ib);
-    end else
-      raise EVariantInvalidArgError.CreateFmt('No data available for %s at %d', [types[i+1], ib]);
+    c:= Length(s);
+    dat.Write(c, sizeof(c));
+    dat.Write(s[1], Length(s) * Sizeof(Char));
   end;
 
 begin
-  types:= Frames.Strings[Last];
-  SetLength(Params, length(types));
-  ib:= First;
-  for i:= 0 to length(types)-1 do begin
-    case types[i+1] of
-      'N': Params[i]:= Null;
-      's': Params[i]:= Frames.Strings[Consume];
-      'S': Params[i]:= UTF8Decode(Frames.Strings[Consume]);
-      'f': Params[i]:= Frames.AsSingle[Consume];
-      'd': Params[i]:= Frames.AsDouble[Consume];
-      'D': Params[i]:= Frames.AsDateTime[Consume];
-      'c': Params[i]:= Frames.AsCurrency[Consume];
-      'B': Params[i]:= ShortInt(Frames.AsByte[Consume]);
-      'b': Params[i]:= Frames.AsByte[Consume];
-      'W': Params[i]:= SmallInt(Frames.AsWord[Consume]);
-      'w': Params[i]:= Frames.AsWord[Consume];
-      'I': Params[i]:= Frames.AsInt[Consume];
-      'i': Params[i]:= Frames.AsCardinal[Consume];
-      '6': Params[i]:= Frames.AsInt64[Consume];
-      'L': Params[i]:= Frames.AsBoolean[Consume];
-    else
-      raise EVariantInvalidArgError.CreateFmt('Unknown transferred type: %s', [types[i+1]]);
+  types:= '';
+  dat:= TStringStream.Create('');
+  try
+    for i:= 0 to high(Params) do begin
+      v:= TVarData(Params[i]);
+      case V.VType of
+        varEmpty,
+          varNull,
+          varUnknown: begin
+            types:= types + 'N';
+            //Packet.Add(Byte(0)); // don't even transfer
+          end;
+        varString: begin
+            types:= types + 's';
+            WriteStr(string(V.VString));
+          end;
+        varOleStr: begin
+            types:= types + 'S';
+            WriteStr(UTF8Encode(WideString(V.VOleStr)));
+          end;
+        varSingle: begin
+            types:= types + 'f';
+            dat.Write(V.VSingle, sizeof(V.VSingle));
+          end;
+        varDouble: begin
+            types:= types + 'd';
+            dat.Write(v.VDouble, Sizeof(v.VDouble));
+          end;
+        varDate: begin
+            types:= types + 'D';
+            dat.Write(v.VDate, sizeof(v.VDate));
+          end;
+        varCurrency: begin
+            types:= types + 'c';
+            dat.Write(v.VCurrency, sizeof(v.VCurrency));
+          end;
+        varShortInt: begin
+            types:= types + 'B';
+            dat.Write(v.VShortInt, Sizeof(v.VShortInt));
+          end;
+        varByte: begin
+            types:= types + 'b';
+            dat.Write(v.VByte, sizeof(v.VByte));
+          end;
+        varSmallInt: begin
+            types:= types + 'W';
+            dat.Write(v.VSmallInt, Sizeof(v.VSmallInt));
+          end;
+        varWord: begin
+            types:= types + 'w';
+            dat.Write(v.VWord, sizeof(v.VWord));
+          end;
+        varInteger: begin
+            types:= types + 'I';
+            dat.Write(V.VInteger, sizeof(v.VInteger));
+          end;
+        varLongWord: begin
+            types:= types + 'i';
+            dat.Write(v.VLongWord, sizeof(v.VLongWord));
+          end;
+        varInt64: begin
+            types:= types + '6';
+            dat.Write(v.VInt64, sizeof(v.VInt64));
+          end;
+        varBoolean: begin
+            types:= types + 'L';
+            b:= v.VBoolean;
+            dat.Write(b, sizeof(b));
+          end;
+      else
+        raise EVariantInvalidArgError.CreateFmt('Type not transferrable: %s', [VarTypeAsText(V.VType)]);
+      end;
     end;
+    Data:= dat.DataString;
+  finally
+    dat.Free;
   end;
 end;
 
 class procedure TPacket.SerializeParams(Params: array of Variant; Packet: TCmdSeq);
 var
-  types: string;
-  i: integer;
-  v: TVarData;
+  tt, dd: string;
 begin
-  types:= '';
-  for i:= 0 to high(Params) do begin
-    v:= TVarData(Params[i]);
-    case V.VType of
-      varEmpty,
-        varNull,
-        varUnknown: begin
-          types:= types + 'N';
-          //Packet.Add(Byte(0)); // don't even transfer
-        end;
-      varString: begin
-          types:= types + 's';
-          Packet.Add(string(V.VString));
-        end;
-      varOleStr: begin
-          types:= types + 'S';
-          Packet.Add(UTF8Encode(WideString(V.VOleStr)));
-        end;
-      varSingle: begin
-          types:= types + 'f';
-          Packet.Add(V.VSingle);
-        end;
-      varDouble: begin
-          types:= types + 'd';
-          Packet.Add(v.VDouble);
-        end;
-      varDate: begin
-          types:= types + 'D';
-          Packet.AddDateTime(v.VDate);
-        end;
-      varCurrency: begin
-          types:= types + 'c';
-          Packet.AddCurrency(v.VCurrency);
-        end;
-      varShortInt: begin
-          types:= types + 'B';
-          Packet.Add(Byte(v.VShortInt));
-        end;
-      varByte: begin
-          types:= types + 'b';
-          Packet.Add(v.VByte);
-        end;
-      varSmallInt: begin
-          types:= types + 'W';
-          Packet.Add(Word(v.VSmallInt));
-        end;
-      varWord: begin
-          types:= types + 'w';
-          Packet.Add(v.VWord);
-        end;
-      varInteger: begin
-          types:= types + 'I';
-          Packet.Add(V.VInteger);
-        end;
-      varLongWord: begin
-          types:= types + 'i';
-          Packet.Add(v.VLongWord);
-        end;
-      varInt64: begin
-          types:= types + '6';
-          Packet.Add(v.VInt64);
-        end;
-      varBoolean: begin
-          types:= types + 'L';
-          Packet.Add(V.VBoolean);
-        end;
-    else
-      raise EVariantInvalidArgError.CreateFmt('Type not transferrable: %s', [VarTypeAsText(V.VType)]);
-    end;
-  end;
-  Packet.Add(types);
+  SerializeParams(Params, tt, dd);
+  Packet.Add(tt);
+  Packet.Add(dd);
 end;
 
 class function TPacket.EntityCall(Entity: TEntityID; Method: Word): TCmdSeq;
@@ -668,6 +790,26 @@ begin
   Result:= TCmdSeq.Create(NETWORK_VERB_ENTITY_MESSAGE);
   Result.Add(Entity);
   Result.Add(Method);
+end;
+
+class function TPacket.EntityMessageFast(Entity: TEntityID; Method: Word; Types, Data: string): TCmdSeq;
+var
+  d: TStringStream;
+  tt: ShortString;
+begin
+  d:= TStringStream.Create('');
+  try
+    Result:= TCmdSeq.Create(NETWORK_VERB_ENTITY_MESSAGE_FAST);
+    d.Write(Entity, Sizeof(Entity));
+    d.Write(Method, Sizeof(Method));
+    tt:= Types;
+    d.Write(Byte(Length(tt)), Sizeof(Byte));
+    d.Write(tt[1], length(tt));
+    d.Write(Data[1], length(Data));
+    Result.Add(d.DataString);
+  finally
+    d.Free;
+  end;
 end;
 
 class function TPacket.StateTransition(NewState: TServerState): TCmdSeq;
