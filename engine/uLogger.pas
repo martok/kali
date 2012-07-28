@@ -14,7 +14,7 @@ uses Classes, SysUtils, Windows, SyncObjs;
 type
   TLogger = class
   private
-    FStream: TFileStream;
+    FName: TFileName;
     FLock: TCriticalSection;
   protected
     procedure Write(S: string);
@@ -39,7 +39,7 @@ var
 function GetLogger: TLogger;
 begin
   if not Assigned(Logger) then
-    Logger:= TLogger.Create(ParamStr(0) + '.' + IntToStr(GetCurrentProcessId) + '.log');
+    Logger:= TLogger.Create(ParamStr(0) + '.log');
   Result:= Logger;
 end;
 
@@ -48,14 +48,14 @@ end;
 constructor TLogger.Create(Filename: string);
 begin
   inherited Create;
-  FStream:= TFileStream.Create(Filename, fmCreate or fmShareDenyWrite);
+  FName:= Filename;
   FLock:= TCriticalSection.Create;
+  Log('Logger', 'Initialized');
 end;
 
 destructor TLogger.Destroy;
 begin
   FreeAndNil(FLock);
-  FreeAndNil(FStream);
   inherited;
 end;
 
@@ -79,16 +79,32 @@ var
   dt, l: string;
 begin
   dt:= FormatDateTime('yyyy-mm-dd hh:nn:ss.zzz', Now);
-  l:= Format('%-23s %20s %s' + sLineBreak, [dt, Context, Message]);
+  l:= Format('[%d] %-23s %20s %s' + sLineBreak, [GetCurrentProcessId, dt, Context, Message]);
   Write(l);
 end;
 
 procedure TLogger.Write(S: string);
+var
+  f: TStream;
+  h: THandle;
 begin
   FLock.Acquire;
   try
-    FStream.Write(S[1], Length(S) * Sizeof(Char));
-    FlushFileBuffers(FStream.Handle);
+    repeat
+      h:= CreateFile(PChar(FName), GENERIC_WRITE, FILE_SHARE_READ, nil, OPEN_ALWAYS, 0, 0);
+    until (h <> INVALID_HANDLE_VALUE) or (GetLastError <> ERROR_SHARING_VIOLATION);
+    if h <> INVALID_HANDLE_VALUE then
+      try
+        f:= THandleStream.Create(h);
+        try
+          f.Seek(0, soFromEnd);
+          f.Write(S[1], Length(S) * Sizeof(Char));
+        finally
+          FreeAndNil(f);
+        end;
+      finally
+        CloseHandle(h);
+      end;
   finally
     FLock.Release;
   end;

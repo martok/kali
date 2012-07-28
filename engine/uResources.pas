@@ -34,7 +34,7 @@ var
 
 implementation
 
-uses Classes, uTTFUtils;
+uses Classes, uTTFUtils, uLogger;
 
 { TResources }
 
@@ -48,8 +48,10 @@ begin
     gxg:= gxc.Create;
     try
       gxg.LoadFromFile(Filename);
+      GetLogger.Log('Resource','LoadGraphic(%s) as %s SUCCESS',[FileName, gxc.ClassName]);
       Result:= gxg;
     except
+      GetLogger.Log('Resource','LoadGraphic(%s) as %s FAILED',[FileName, gxc.ClassName]);
       FreeAndNil(gxc);
       raise;
     end;
