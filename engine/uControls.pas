@@ -41,7 +41,8 @@ type
     procedure Clear;
     procedure SetFocus(Widget: TInput);
 
-    procedure UpdateAndRender(Surface: TSurface);
+    procedure Update;
+    procedure Render(Surface: TSurface);
     procedure KeyDown(var Key: Word);
     procedure KeyPress(Key: Char);
   end;
@@ -134,13 +135,17 @@ begin
     TWidget(FControls[i]).KeyPress(Key);
 end;
 
-procedure TGUI.UpdateAndRender(Surface: TSurface);
-var
-  i: integer;
+procedure TGUI.Update;
 begin
   FMouse:= FScreen.Mouse;
   FMousePt:= Point(FMouse.X, FMouse.Y);
   HandleMouse;
+end;
+
+procedure TGUI.Render(Surface: TSurface);
+var
+  i: integer;
+begin
   for i:= 0 to FControls.Count - 1 do
     TWidget(FControls[i]).Render(Surface);
 end;
