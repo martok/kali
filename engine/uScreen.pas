@@ -100,6 +100,8 @@ begin
 end;
 
 procedure TScreen.Run;
+var
+  P: Pointer;
 begin
   FRunning:= True;
   try
@@ -109,6 +111,8 @@ begin
     FTimeLastFrame:= FTimeStart;
     FFrameCount:= 0;
     FWorldTime:= 0;
+    P:= @Application.Mainform;
+    Pointer(P^):= Self;
     Show;
     repeat
       try
@@ -269,10 +273,10 @@ end;
 procedure TScreen.MouseMove(Shift: TShiftState; X, Y: Integer);
 begin
   inherited;
-  FMouse.Hover:= PtInRect(FActualFrame, Point(X,Y));
+  FMouse.Hover:= PtInRect(FActualFrame, Point(X, Y));
   if FMouse.Hover then begin
-    FMouse.X:= (X - FActualFrame.Left) * FSurface.Width div (FActualFrame.Right-FActualFrame.Left);
-    FMouse.Y:= (Y - FActualFrame.Top) * FSurface.Height div (FActualFrame.Bottom-FActualFrame.Top);
+    FMouse.X:= (X - FActualFrame.Left) * FSurface.Width div (FActualFrame.Right - FActualFrame.Left);
+    FMouse.Y:= (Y - FActualFrame.Top) * FSurface.Height div (FActualFrame.Bottom - FActualFrame.Top);
   end;
 end;
 
@@ -284,12 +288,11 @@ end;
 
 function TScreen.DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean;
 begin
-  if WheelDelta>0 then
+  if WheelDelta > 0 then
     inc(FMouse.Wheel)
-  else
-  if WheelDelta<0 then
+  else if WheelDelta < 0 then
     dec(FMouse.Wheel);
-  Result:= inherited DoMouseWheel(Shift, WheelDelta,MousePos);
+  Result:= inherited DoMouseWheel(Shift, WheelDelta, MousePos);
 end;
 
 end.
