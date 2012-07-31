@@ -30,7 +30,7 @@ type
   protected
     property Mouse: TMouse read FMouse;
     property MousePt: TPoint read FMousePt;
-    procedure HandleMouse;
+    function HandleMouse: boolean;
   public
     constructor Create(Screen: TScreen);
     destructor Destroy; override;
@@ -41,7 +41,7 @@ type
     procedure Clear;
     procedure SetFocus(Widget: TInput);
 
-    procedure Update;
+    procedure Update(out MouseEventHandled: boolean);
     procedure Render(Surface: TSurface);
     procedure KeyDown(var Key: Word);
     procedure KeyPress(Key: Char);
@@ -135,11 +135,11 @@ begin
     TWidget(FControls[i]).KeyPress(Key);
 end;
 
-procedure TGUI.Update;
+procedure TGUI.Update(out MouseEventHandled: boolean);
 begin
   FMouse:= FScreen.Mouse;
   FMousePt:= Point(FMouse.X, FMouse.Y);
-  HandleMouse;
+  MouseEventHandled:= HandleMouse;
 end;
 
 procedure TGUI.Render(Surface: TSurface);
@@ -174,11 +174,12 @@ begin
       TInput(FControls[i]).FFocused:= FControls[i] = Widget;
 end;
 
-procedure TGUI.HandleMouse;
+function TGUI.HandleMouse: boolean;
 var
   i: integer;
   c: TClickable;
 begin
+  Result:= false;
   if (Mouse.Buttons = [mbLeft]) then begin
     if not FClicked then begin
       FClicked:= true;
@@ -188,6 +189,7 @@ begin
           c:= FControls[i] as TClickable;
           if c.Enabled and
             PtInRect(c.Position, MousePt) then begin
+            Result:= true;
             c.FClicked:= true;
             c.Click;
             if c is TInput then
