@@ -71,6 +71,7 @@ if you recognise the source: please tell me, I would love to give credit!
 The most basic thing you can do. Shows setup and the logic behind seperate render
 and tick functions. Also, it shows key interaction for walking and rudimentary
 (and physically completely wrong ;-) ) jumping.
+Also notice the two things needed to use the VFS: including it and adding one data overlay.
 
 /example/network
 ----------------
@@ -86,6 +87,7 @@ is to be used:
 
 * Engine
     * GraphicEx by Mike Lische - [Web Site](http://www.soft-gems.net/index.php/libs/graphicex-library)
+    * KAZip by Kiril Antonov - [Web Site](http://kadao.dir.bg/) [Direct Link](http://kadao.dir.bg/products.htm#KAZIP)
 * Net
     * NarsesBFPA by Narses - [Forum Post](http://www.delphi-forum.de/topic_TNBFPA+v112++SocketKompos+mit+Protokollfunktionen_71223.html)
     * MessageThread by delfiphan - [Forum Post](http://www.delphi-library.de/topic_Ereignisorientierte+ThreadsMessage+Handling_90333.html)

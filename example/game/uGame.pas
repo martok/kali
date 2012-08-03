@@ -31,6 +31,8 @@ type
 
 implementation
 
+uses uVFS, uVFSFolder;
+
 { TGame }
 
 constructor TGame.Create(Screen: TScreen);
@@ -42,6 +44,8 @@ begin
   FScreen.OnRender:= Render;
   FScreen.OnKeyDown:= KeyDown;
   FScreen.OnKeyUp:= KeyUp;
+
+  VFSManager.AddOverlay(0,'',TvfsFileSystemFolder.Create(ExtractFilePath(ParamStr(0))));
 
   Artwork.Ball:= Resources.CutSprite('gfx/ball.png', 32, 32);
   Artwork.Floor:= Resources.Sprite('gfx/floor.png');
