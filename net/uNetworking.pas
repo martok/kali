@@ -29,7 +29,7 @@ type
     FHost: THost;
     function GetID: integer;
   public
-    constructor Create(PA: TProtocolAdapter; Host: THost);
+    constructor Create(PA: TProtocolAdapter; Host: THost); virtual;
   published
     property IsHandshaked: boolean read FIsHandshaked;
     property PA: TProtocolAdapter read FPA;
