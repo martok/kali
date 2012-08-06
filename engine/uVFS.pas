@@ -195,6 +195,9 @@ function FileNameLike(const AString, APattern: String): Boolean;
 
 implementation
 
+uses
+  uLogger;
+
 const
   VFSTAB_COMMENT   = '#';
   VFSTAB_QUOTE     = '"';
@@ -556,6 +559,7 @@ begin
   Result:= nil;
   ol:= TvfsOverlay.Create(Layer, Provider, Mountpoint);
   try
+    GetLogger.Log('VFS', 'Loaded Layer %d as /%s from %s',[Layer,Mountpoint, Provider.StorageGetFileSpec]);
     InsertOverlay(ol);
     Result:= ol;
   except

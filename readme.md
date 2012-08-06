@@ -56,6 +56,10 @@ Subsystems
     for every server, such as handshaking and packet creation. It also provides
     server states for more high-level Lobby/In-Game distinctions.
 
+*   **Sound**
+
+    OpenAL powered sound system capable of playing Wave and OGG audio on multiple 3D
+    positioned sources.
 
 Examples
 ========
@@ -91,6 +95,11 @@ is to be used:
 * Net
     * NarsesBFPA by Narses - [Forum Post](http://www.delphi-forum.de/topic_TNBFPA+v112++SocketKompos+mit+Protokollfunktionen_71223.html)
     * MessageThread by delfiphan - [Forum Post](http://www.delphi-library.de/topic_Ereignisorientierte+ThreadsMessage+Handling_90333.html)
+* Sound
+    * [libOgg](http://xiph.org/ogg/), [libVorbis](http://xiph.org/vorbis/), Binary form taken from Audorra package.
+    * ogg/vorbis header translation from FreePascal's `oggvorbis` package; includes several bugfixes
+    * OpenAL Soft - [Web Site](http://kcat.strangesoft.net/openal.html)
+
 
 
 History
