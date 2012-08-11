@@ -9,9 +9,18 @@ unit uSprite;
 
 interface
 
-uses SysUtils, Windows, Graphics, Contnrs;
+uses SysUtils, Windows, Types, Graphics, Contnrs;
 
 type
+  TRGBAColor = type Cardinal;
+  PRGBA = ^TRGBA;
+  TRGBA = packed record
+    //Bitmap aligned: BGR(A)
+    B, G, R, A: byte;
+  end;
+
+  TBlendFunc = function(Dest, Source, Color: PRGBA): TRGBA;
+
   TSprite = class(TBitmap)
   private
     FAlphaReady: boolean;
@@ -20,8 +29,7 @@ type
   public
     constructor Create; override;
     constructor CreateTemplate(SourceBitmap: TBitmap);
-    procedure FakeAlpha;
-    procedure TransparentDraw(ACanvas: TCanvas; X, Y: integer);
+    procedure DrawTo(Bitmap: TBitmap; X, Y: integer; Color: TRGBAColor = $FFFFFFFF; BlendFunc: TBlendFunc = nil);
   end;
 
   TMultiSpriteArray = array of array of TSprite;
@@ -38,13 +46,118 @@ type
     property CountY: integer read FCountY;
   end;
 
-const
-  BITMAP_TRANSPARENT_COLOR = clPurple;
-  BITMAP_SPECIAL_COLOR = (not BITMAP_TRANSPARENT_COLOR) and $FFFFFF;
+function BlendFunc_GDI_BitBlt(Dest, Source, Color: PRGBA): TRGBA;
+function BlendFunc_GDI_TransparentBlt(Dest, Source, Color: PRGBA): TRGBA;
+function BlendFunc_GDI_AlphaBlt(Dest, Source, Color: PRGBA): TRGBA;
+function BlendFunc_Alpha_Mask(Dest, Source, Color: PRGBA): TRGBA;
 
 implementation
 
-uses uLogger;
+uses Math, uLogger;
+
+procedure AlphaBlitBitmap(Source: TBitmap; Dest: TBitmap; SrcRect: TRect; Dst: TPoint; GlobalColor: TColor; BlendFunc: TBlendFunc);
+var
+  w, h, x, y: integer;
+  sln, dln: PRGBA;
+  gc: TRGBA;
+begin
+  Assert(Source.PixelFormat = pf32bit, 'Source PixelFormat must be 32bit');
+  Assert(Dest.PixelFormat = pf32bit, 'Dest PixelFormat must be 32bit');
+  IntersectRect(SrcRect, SrcRect, Bounds(0, 0, Source.Width, Source.Height));
+  if Dst.X < 0 then begin
+    inc(SrcRect.Left, -Dst.X);
+    Dst.X:= 0;
+  end;
+  if Dst.Y < 0 then begin
+    inc(SrcRect.Top, -Dst.Y);
+    Dst.Y:= 0;
+  end;
+  if Dst.X + (SrcRect.Right - SrcRect.Left) > Dest.Width then
+    SrcRect.Right:= Dest.Width - Dst.X + SrcRect.Left;
+  if Dst.Y + (SrcRect.Bottom - SrcRect.Top) > Dest.Height then
+    SrcRect.Bottom:= Dest.Height - Dst.Y + SrcRect.Top;
+
+  gc.R:= (GlobalColor and $FF);
+  gc.G:= (GlobalColor and $FF00) shr 8;
+  gc.B:= (GlobalColor and $FF0000) shr 16;
+  gc.A:= (GlobalColor and $FF000000) shr 24;
+  w:= SrcRect.Right - SrcRect.Left;
+  h:= SrcRect.Bottom - SrcRect.Top;
+  for y:= 0 to h - 1 do begin
+    sln:= Source.ScanLine[SrcRect.Top + y];
+    dln:= Dest.ScanLine[Dst.Y + y];
+    inc(dln, Dst.X);
+    inc(sln, SrcRect.Left);
+    for x:= 0 to w - 1 do begin
+      dln^:= BlendFunc(dln, sln, @gc);
+      inc(dln);
+      inc(sln);
+    end;
+  end;
+end;
+
+function BlendFunc_GDI_BitBlt(Dest, Source, Color: PRGBA): TRGBA;
+{$IFDEF PUREPASCAL}
+begin
+  Move(Source^, Result, sizeof(TRGBA));
+{$ELSE}
+asm
+  mov eax, [Source]
+{$ENDIF}
+end;
+
+function BlendFunc_GDI_TransparentBlt(Dest, Source, Color: PRGBA): TRGBA;
+{$IFDEF PUREPASCAL}
+begin
+  if Source.A > 0 then
+    Move(Source^, Result, sizeof(TRGBA))
+  else
+    Move(Dest^, Result, sizeof(TRGBA))
+{$ELSE}
+asm
+  mov ecx, Source
+  cmp byte ptr [ecx].TRGBA.A, 0
+  jbe @@retdest
+  mov eax, [Source]
+  jmp @@end
+  @@retdest:
+  mov eax, [Dest]
+  @@end:
+{$ENDIF}
+end;
+
+function BlendFunc_GDI_AlphaBlt(Dest, Source, Color: PRGBA): TRGBA;
+var
+  A, DA: Cardinal;
+begin
+  A:= Source.A;
+  DA:= $FF - A;
+  Result.R:= ((DA * Dest.R) + (A * Source.R) + 127) div $100;
+  Result.G:= ((DA * Dest.G) + (A * Source.G) + 127) div $100;
+  Result.B:= ((DA * Dest.B) + (A * Source.B) + 127) div $100;
+end;
+
+function BlendFunc_AlphaBlt(Dest, Source, Color: PRGBA): TRGBA;
+var
+  A, DA: Cardinal;
+begin
+  A:= (Source.A * Color.A) div $100;
+  DA:= $FF - A;
+  Result.R:= ((DA * Dest.R) + (A * (Source.R * Color.R) div $100) + 127) div $100;
+  Result.G:= ((DA * Dest.G) + (A * (Source.G * Color.G) div $100) + 127) div $100;
+  Result.B:= ((DA * Dest.B) + (A * (Source.B * Color.B) div $100) + 127) div $100;
+end;
+
+function BlendFunc_Alpha_Mask(Dest, Source, Color: PRGBA): TRGBA;
+var
+  A, DA: Cardinal;
+begin
+  A:= (Source.A * Color.A) div $100;
+  DA:= $FF - A;
+  Result.R:= ((DA * Dest.R) + (A * Color.R) + 127) div $100;
+  Result.G:= ((DA * Dest.G) + (A * Color.G) + 127) div $100;
+  Result.B:= ((DA * Dest.B) + (A * Color.B) + 127) div $100;
+end;
 
 { TSprite }
 
@@ -52,9 +165,6 @@ constructor TSprite.Create;
 begin
   inherited;
   PixelFormat:= pf32bit;
-  Transparent:= true;
-  TransparentMode:= tmFixed;
-  TransparentColor:= BITMAP_TRANSPARENT_COLOR;
 end;
 
 constructor TSprite.CreateTemplate(SourceBitmap: TBitmap);
@@ -83,45 +193,11 @@ begin
   inherited;
 end;
 
-procedure TSprite.FakeAlpha;
-var
-  x, y: integer;
-  sl: PDWORD;
+procedure TSprite.DrawTo(Bitmap: TBitmap; X, Y: integer; Color: TRGBAColor; BlendFunc: TBlendFunc);
 begin
-  for y:= 0 to Height - 1 do begin
-    sl:= ScanLine[y];
-    for x:= 0 to Width - 1 do begin
-      if (sl^ and $FF000000) = 0 then begin
-        sl^:= BITMAP_TRANSPARENT_COLOR;
-      end;
-      inc(sl);
-    end;
-  end;
-  FAlphaReady:= true;
-end;
-
-procedure TSprite.TransparentDraw(ACanvas: TCanvas; X, Y: integer);
-begin
-  (*
-  // Sadly, the headers doen't include parameter names, so heres what MSDN says:
-  BOOL TransparentBlt(
-    __in  HDC hdcDest,
-    __in  int xoriginDest,
-    __in  int yoriginDest,
-    __in  int wDest,
-    __in  int hDest,
-    __in  HDC hdcSrc,
-    __in  int xoriginSrc,
-    __in  int yoriginSrc,
-    __in  int wSrc,
-    __in  int hSrc,
-    __in  UINT crTransparent
-  );
-  *)
-  if not FAlphaReady then
-    FakeAlpha;
-  TransparentBlt(ACanvas.Handle, X, Y, Width, Height,
-    Canvas.Handle, 0, 0, Width, Height, BITMAP_TRANSPARENT_COLOR);
+  if not Assigned(BlendFunc) then
+    BlendFunc:= BlendFunc_GDI_TransparentBlt;
+  AlphaBlitBitmap(Self, Bitmap, Bounds(0, 0, Width, Height), Point(X, Y), Color, BlendFunc);
 end;
 
 { TMultiSprite }

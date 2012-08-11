@@ -24,6 +24,8 @@ type
     constructor Create; override;
     procedure Clear(Color: TColor);
     procedure Blit(X, Y: integer; Graphic: TSprite);
+    procedure BlitColored(X, Y: integer; Graphic: TSprite; Color: TColor; Alpha: byte=255);
+    procedure BlitBlended(X, Y: integer; Graphic: TSprite; BlendFunc: TBlendFunc; Color: TColor; Alpha: byte=255);
     procedure TextAlign(X, Y: integer; Text: string; Vertical: TTextVAlign; Horizontal: TTextHAlign);
     property Pixel[X, Y: integer]: TColor read GetPixel write SetPixel;
   end;
@@ -31,6 +33,14 @@ type
 implementation
 
 { TSurface }
+
+constructor TSurface.Create;
+begin
+  inherited;
+  PixelFormat:= pf32bit;
+  Canvas.Font.Name:= 'Fixedsys';
+  Canvas.Font.Size:= 16;
+end;
 
 procedure TSurface.Clear(Color: TColor);
 begin
@@ -41,15 +51,17 @@ end;
 
 procedure TSurface.Blit(X, Y: integer; Graphic: TSprite);
 begin
-  Graphic.TransparentDraw(Canvas, X, Y);
+  Graphic.DrawTo(Self, X, Y);
 end;
 
-constructor TSurface.Create;
+procedure TSurface.BlitBlended(X, Y: integer; Graphic: TSprite; BlendFunc: TBlendFunc; Color: TColor; Alpha: byte);
 begin
-  inherited;
-  PixelFormat:= pf32bit;
-  Canvas.Font.Name:= 'Fixedsys';
-  Canvas.Font.Size:= 16;
+  Graphic.DrawTo(Self, X, Y, Color or (Alpha shl 24),BlendFunc);
+end;
+
+procedure TSurface.BlitColored(X, Y: integer; Graphic: TSprite; Color: TColor; Alpha: byte);
+begin
+  Graphic.DrawTo(Self, X, Y, Color or (Alpha shl 24));
 end;
 
 function TSurface.GetPixel(X, Y: integer): TColor;

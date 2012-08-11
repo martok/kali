@@ -13,7 +13,8 @@ type
     Artwork: record
       Ball: TMultiSprite;
       Char: TMultiSprite;
-      Floor: TSprite;
+      Floor,
+      Shadow: TSprite;
     end;
     KeyMap: array[0..255] of boolean;
     Jumpt: TTimer;
@@ -50,6 +51,7 @@ begin
   Artwork.Ball:= Resources.CutSprite('gfx/ball.png', 32, 32);
   Artwork.Floor:= Resources.Sprite('gfx/floor.png');
   Artwork.Char:= Resources.CutSprite('gfx/StarChar.png', 16, 24);
+  Artwork.Shadow:= Resources.Sprite('gfx/shadow.png');
   ballx:= 120;
   bally:= 120;
   charfrm:= 0;
@@ -95,6 +97,9 @@ var
 begin
   FScreen.Caption:= Format('Target: %d  FPS: %f', [FScreen.FrameTarget, FScreen.CurrentFPS]);
   Surface.Clear(clSilver);
+
+  Surface.BlitBlended(Surface.Width div 2 - 127, Surface.Height div 2 - 127, Artwork.Shadow, BlendFunc_Alpha_Mask, rgb(0,trunc((1+cos(FScreen.WorldTime))*120),trunc((1+sin(FScreen.WorldTime))*120)));
+
   for i:= 0 to 9 do
     Surface.Blit(i * 32, 120, Artwork.Floor);
   Surface.Blit(trunc(ballx), 120, Artwork.Ball[1, 0]);
