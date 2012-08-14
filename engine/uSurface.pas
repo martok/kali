@@ -67,7 +67,7 @@ end;
 
 procedure TSurface.BlitColored(X, Y: integer; Graphic: TSprite; Color: TColor; Alpha: byte);
 begin
-  Graphic.DrawTo(Self, X - FOrigin.X, Y - FOrigin.Y, Color or (Alpha shl 24));
+  Graphic.DrawTo(Self, X - FOrigin.X, Y - FOrigin.Y, Color or (Alpha shl 24), BlendFunc_AlphaBlt);
 end;
 
 function TSurface.GetPixel(X, Y: integer): TColor;

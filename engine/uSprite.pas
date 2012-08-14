@@ -49,6 +49,7 @@ type
 function BlendFunc_GDI_BitBlt(Dest, Source, Color: PRGBA): TRGBA;
 function BlendFunc_GDI_TransparentBlt(Dest, Source, Color: PRGBA): TRGBA;
 function BlendFunc_GDI_AlphaBlt(Dest, Source, Color: PRGBA): TRGBA;
+function BlendFunc_AlphaBlt(Dest, Source, Color: PRGBA): TRGBA;
 function BlendFunc_Alpha_Mask(Dest, Source, Color: PRGBA): TRGBA;
 
 implementation
