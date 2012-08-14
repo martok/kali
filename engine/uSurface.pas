@@ -17,6 +17,7 @@ type
 
   TSurface = class(TBitmap)
   private
+    FOrigin: TPoint;
     function GetData(X, Y: Cardinal): PCardinal;
     function GetPixel(X, Y: integer): TColor;
     procedure SetPixel(X, Y: integer; const Value: TColor);
@@ -27,8 +28,12 @@ type
     procedure BlitColored(X, Y: integer; Graphic: TSprite; Color: TColor; Alpha: byte=255);
     procedure BlitBlended(X, Y: integer; Graphic: TSprite; BlendFunc: TBlendFunc; Color: TColor; Alpha: byte=255);
     procedure TextAlign(X, Y: integer; Text: string; Vertical: TTextVAlign; Horizontal: TTextHAlign);
+    procedure TransformViewport(Origin: TPoint);
     property Pixel[X, Y: integer]: TColor read GetPixel write SetPixel;
   end;
+
+const
+  POINT_ORIGIN : TPoint = (X: 0; Y: 0);
 
 implementation
 
@@ -40,6 +45,7 @@ begin
   PixelFormat:= pf32bit;
   Canvas.Font.Name:= 'Fixedsys';
   Canvas.Font.Size:= 16;
+  TransformViewport(POINT_ORIGIN);
 end;
 
 procedure TSurface.Clear(Color: TColor);
@@ -51,17 +57,17 @@ end;
 
 procedure TSurface.Blit(X, Y: integer; Graphic: TSprite);
 begin
-  Graphic.DrawTo(Self, X, Y);
+  Graphic.DrawTo(Self, X - FOrigin.X, Y - FOrigin.Y);
 end;
 
 procedure TSurface.BlitBlended(X, Y: integer; Graphic: TSprite; BlendFunc: TBlendFunc; Color: TColor; Alpha: byte);
 begin
-  Graphic.DrawTo(Self, X, Y, Color or (Alpha shl 24),BlendFunc);
+  Graphic.DrawTo(Self, X - FOrigin.X, Y - FOrigin.Y, Color or (Alpha shl 24),BlendFunc);
 end;
 
 procedure TSurface.BlitColored(X, Y: integer; Graphic: TSprite; Color: TColor; Alpha: byte);
 begin
-  Graphic.DrawTo(Self, X, Y, Color or (Alpha shl 24));
+  Graphic.DrawTo(Self, X - FOrigin.X, Y - FOrigin.Y, Color or (Alpha shl 24));
 end;
 
 function TSurface.GetPixel(X, Y: integer): TColor;
@@ -94,6 +100,12 @@ begin
     haCenter: dec(X, cc.cx div 2);
   end;
   Canvas.TextOut(X, Y, Text);
+end;
+
+procedure TSurface.TransformViewport(Origin: TPoint);
+begin
+  SetWindowOrgEx(Canvas.Handle, Origin.X, Origin.Y, nil);
+  FOrigin:= Origin;
 end;
 
 end.
