@@ -48,7 +48,7 @@ var
 
 procedure Debug(Fmt: string; Args: array of const);
 begin
-  OutputDebugString(PChar(SysUtils.Format(Fmt, Args)));
+  //OutputDebugString(PChar(SysUtils.Format(Fmt, Args)));
 end;
 
 function ogg_read_func(ptr: pointer; size, nmemb: csize_t; datasource: pointer): csize_t; cdecl;

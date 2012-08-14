@@ -23,6 +23,8 @@ type
   private
     FCtx: TALContext;
     FAvailable: boolean;
+    function GetWorldScale: double;
+    procedure SetWorldScale(const Value: double);
   public
     constructor Create;
     destructor Destroy; override;
@@ -31,6 +33,8 @@ type
 
     function LoadSound(Kind: TSoundKind; Stream: TStream; Filetype: TSoundFiletype): TsndSound;
     function Emitter(X, Y, Z: Double; Relative: boolean): TsndEmitter;
+
+    property WorldScale: double read GetWorldScale write SetWorldScale;
   end;
 
   TsndSound = class
@@ -103,6 +107,9 @@ uses uLogger, oval, Math;
 const
   LOG_CTX = 'Sound';
 
+var
+  GLOB_WorldScale: double;
+
   { TSoundSystem }
 
 constructor TSoundSystem.Create;
@@ -126,6 +133,7 @@ begin
   GetLogger.Log(LOG_CTX, 'Initialized Audio: ' +
     'OpenAL ' + SoundAL.VersionInfo.Version +
     ' ALC: ' + FCtx.Version);
+  GLOB_WorldScale:= 1;
   FAvailable:= true;
 end;
 
@@ -151,6 +159,16 @@ begin
   p[2]:= Z;
   Result.PositionRelative:= Relative;
   Result.Position:= p;
+end;
+
+function TSoundSystem.GetWorldScale: double;
+begin
+  Result:= GLOB_WorldScale;
+end;
+
+procedure TSoundSystem.SetWorldScale(const Value: double);
+begin
+  GLOB_WorldScale:= Value;
 end;
 
 { TsndSound }
@@ -205,6 +223,13 @@ begin
   FInstances:= TObjectList.Create(false);
 end;
 
+destructor TsndEmitter.Destroy;
+begin
+  FInstances.OwnsObjects:= true;
+  FInstances.Free;
+  inherited;
+end;
+
 function TsndEmitter.GetPosition: TVector3f;
 begin
   Result:= FPosition;
@@ -254,20 +279,16 @@ procedure TsndEmitter.UpdateInstances;
 var
   i: integer;
   sr: TALSource;
+  f: Single;
 begin
   for i:= 0 to FInstances.Count - 1 do begin
     sr:= TALSource(FInstances[i]);
     sr.PositionRelative:= FPositionRelative;
     sr.Position:= FPosition;
     sr.Velocity:= FVelocity;
+    f:= GLOB_WorldScale;
+    alSourcef(sr.Handle, AL_ROLLOFF_FACTOR, f);
   end;
-end;
-
-destructor TsndEmitter.Destroy;
-begin
-  FInstances.OwnsObjects:= true;
-  FInstances.Free;
-  inherited;
 end;
 
 { TsndInstance }
@@ -353,6 +374,7 @@ end;
 
 procedure TsndInstance.Stop;
 begin
+  FLoop:= 0;
   case FSound.Kind of
     skBlock: FSource.Stop;
     skStream: FStreamCopy.Stop;

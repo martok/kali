@@ -632,7 +632,8 @@ begin
   SetSource(nil);
   DecoderThread.FOwner:= nil;
   DecoderThread.Run;
-  FreeAndNil(DecoderThread);
+  DecoderThread.FreeOnTerminate:= true;
+  DecoderThread:= nil;
   if FOwnsStream and Assigned(FStream) then
     FreeAndNil(FStream);
   inherited;
