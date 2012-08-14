@@ -54,7 +54,7 @@ function BlendFunc_Alpha_Mask(Dest, Source, Color: PRGBA): TRGBA;
 
 implementation
 
-uses Math, uLogger;
+uses Math, uLogger, Classes;
 
 procedure AlphaBlitBitmap(Source: TBitmap; Dest: TBitmap; SrcRect: TRect; Dst: TPoint; GlobalColor: TColor; BlendFunc: TBlendFunc);
 var
@@ -238,7 +238,10 @@ end;
 
 function TMultiSprite.GetSprite(X, Y: Integer): TSprite;
 begin
-  Result:= FFrames[X, Y];
+  if (X>=0) and (Y>=0) and (X<length(FFrames)) and (Y<length(FFrames[X])) then
+    Result:= FFrames[X, Y]
+  else
+    raise EListError.CreateFmt('MultiSprite index out of bounds: %d,%d',[X,Y]);
 end;
 
 end.
