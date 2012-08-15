@@ -111,7 +111,7 @@ begin
   try
     Result:= FileExists(ExpandPath(FileName));
     if Result then begin
-      fs:= TFileStream.Create(ExpandPath(FileName), fmOpenRead);
+      fs:= TFileStream.Create(ExpandPath(FileName), fmOpenRead or fmShareDenyWrite);
       Result:= Assigned(fs);
       if Result then
         Stream:= TvfsStreamHandleRead.Create(fs);
