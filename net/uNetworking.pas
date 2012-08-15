@@ -46,6 +46,7 @@ type
   TEntityCallEvent = procedure(Sender: TObject; Connection: TConnectionState; Entity: TEntityID; Method: Word; Params:
     array of Variant) of object;
   TPAStatusEvent = procedure(Sender: TObject; Connection: TConnectionState; PA: TProtocolAdapter) of object;
+  TPADisconnectEvent = procedure(Sender: TObject; Connection: TConnectionState; SessionID: Integer) of object;
   TConnectError = (ceWSA, ceNBFP, ceProtocol, ceOutOfMemory, ceException);
   TConnectErrorEvent = procedure(Sender: TObject; PA: TProtocolAdapter; Reason: TConnectError; ErrorCode: integer) of object;
 
@@ -58,7 +59,7 @@ type
     FOnCallEntity: TEntityCallEvent;
     FOnClientConnected: TPAStatusEvent;
     FOnClientHandshake: TPAStatusEvent;
-    FOnClientDisconnect: TPAStatusEvent;
+    FOnClientDisconnect: TPADisconnectEvent;
     procedure ServerClientConnect(Sender: TObject; PA: TProtocolAdapter);
     procedure ServerClientDisconnect(Sender: TObject; const InvalidSessionID: integer);
     procedure ServerClientDestroy(Sender: TObject; PA: TProtocolAdapter);
@@ -88,7 +89,7 @@ type
 
     property OnClientConnected: TPAStatusEvent read FOnClientConnected write FOnClientConnected;
     property OnClientHandshake: TPAStatusEvent read FOnClientHandshake write FOnClientHandshake;
-    property OnClientDisconnect: TPAStatusEvent read FOnClientDisconnect write FOnClientDisconnect;
+    property OnClientDisconnect: TPADisconnectEvent read FOnClientDisconnect write FOnClientDisconnect;
     property OnCallEntity: TEntityCallEvent read FOnCallEntity write FOnCallEntity;
   end;
 
@@ -226,6 +227,7 @@ end;
 
 destructor THost.Destroy;
 begin
+  FreeAndNil(FDestroyedState);
   FreeAndNil(FServer);
   inherited;
 end;
@@ -366,16 +368,27 @@ begin
 end;
 
 procedure THost.ServerClientDisconnect(Sender: TObject; const InvalidSessionID: integer);
+var
+  st: TConnectionState;
 begin
+  if FDestroyedSession = InvalidSessionID then
+    st:= FDestroyedState
+  else
+    st:= nil;
   if Assigned(FOnClientDisconnect) then
-    FOnClientDisconnect(Self, FDestroyedState, nil);
+    FOnClientDisconnect(Self, st, InvalidSessionID);
+  FreeAndNil(FDestroyedState);
+  FDestroyedSession:= -1;
 end;
 
 procedure THost.ServerClientDestroy(Sender: TObject; PA: TProtocolAdapter);
 begin
   FDestroyedSession:= PA.SessionID;
+  FreeAndNil(FDestroyedState);
   FDestroyedState:= TConnectionState(PA.RefObject);
-  FDestroyedState.FPA:= nil;
+  if Assigned(FDestroyedState) then begin
+    FDestroyedState.FPA:= nil;
+  end;
   PA.RefObject:= nil;
 end;
 
