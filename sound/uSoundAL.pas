@@ -162,6 +162,7 @@ type
     FWaiting: boolean;
     FSleeper: TEvent;
   protected
+    procedure SyncCallThread;
     procedure Execute; override;
   public
     constructor Create(AOWner: TALDecoderStream);
@@ -748,8 +749,7 @@ end;
 procedure TALDecoderThread.Execute;
 begin
   while not Terminated do begin
-    if Assigned(FOwner) then
-      Synchronize({$IFDEF FPC}@{$ENDIF}FOwner.ThreadCycle);
+    Synchronize({$IFDEF FPC}@{$ENDIF}SyncCallThread);
     if FWaiting then
       FSleeper.WaitFor(10000)
     else
@@ -769,6 +769,12 @@ begin
     Resume
   else
     FSleeper.SetEvent;
+end;
+
+procedure TALDecoderThread.SyncCallThread;
+begin
+  if Assigned(FOwner) then
+    Synchronize(FOwner.ThreadCycle);
 end;
 
 initialization
