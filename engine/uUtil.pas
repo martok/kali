@@ -19,6 +19,12 @@ type
     function Step(DT: single): integer;
   end;
 
+  TFPoint = record
+    X, Y: Double;
+  end;
+
+  TPolygon = array of TPoint;
+
 var
   PerformanceFrequency: Int64;
 
@@ -26,6 +32,12 @@ procedure CenterRectInRect(Outer: TRect; var Inner: TRect);
 function Timer(const WaitTime: Double; Periodic: boolean = false): TTimer;
 function TryTrunc(x: Extended; out Val: Int64): boolean;
 function VarCompress(const Val: Variant; SinglePrecision: boolean): Variant;
+
+function Polygon(Points: array of TPoint): TPolygon;
+function RectToPolygon(Rect: TRect): TPolygon;
+function BoundingRectangle(Poly: TPolygon): TRect;
+function PolyPolyIntersect(A, B: TPolygon): Boolean;
+procedure OffsetPolygon(var Poly: TPolygon; dx, dy: integer);
 
 implementation
 
@@ -133,6 +145,88 @@ begin
     Result:= trunc(Current / Total);
   if Periodic and (Result > 0) then
     Current:= Current - Result * Total;
+end;
+
+function Polygon(Points: array of TPoint): TPolygon;
+var
+  i: integer;
+begin
+  SetLength(Result, Length(Points));
+  for i:= 0 to high(Points) do
+    Result[i]:= Points[i];
+end;
+
+function RectToPolygon(Rect: TRect): TPolygon;
+begin
+  SetLength(Result, 4);
+  Result[0]:= Point(Rect.Left, Rect.Top);
+  Result[1]:= Point(Rect.Right, Rect.Top);
+  Result[2]:= Point(Rect.Right, Rect.Bottom);
+  Result[3]:= Point(Rect.Left, Rect.Bottom);
+end;
+
+function BoundingRectangle(Poly: TPolygon): TRect;
+var
+  i: integer;
+begin
+  Result.Top:= MaxInt;
+  Result.Left:= MaxInt;
+  Result.Bottom:= 1 - MaxInt;
+  Result.Right:= 1 - MaxInt;
+  for i:= 0 to high(Poly) do begin
+    Result.Left:= min(Result.Left, Poly[i].X);
+    Result.Right:= max(Result.Right, Poly[i].X);
+    Result.Top:= min(Result.Top, Poly[i].Y);
+    Result.Bottom:= max(Result.Bottom, Poly[i].Y);
+  end;
+end;
+
+function PolyPolyIntersect(A, B: TPolygon): Boolean;
+var
+  i, j, k: integer;
+  ab, av, bb, bv: TFPoint;
+  d, e: double;
+begin
+  Result:= false;
+  for i:= 0 to high(A) do begin
+    ab.X:= A[i].X;
+    ab.Y:= A[i].Y;
+    k:= (i + 1) mod Length(A);
+    av.X:= A[k].X - ab.x;
+    av.Y:= A[k].Y - ab.Y;
+    for j:= 0 to high(B) do begin
+      bb.X:= B[j].X;
+      bb.Y:= B[j].Y;
+      k:= (j + 1) mod Length(B);
+      bv.X:= B[k].X - bb.x;
+      bv.Y:= B[k].Y - bb.Y;
+
+      e:= (av.y * bv.x - av.x * bv.y);
+      if not IsZero(e) then begin
+        d:= (-ab.y * bv.x + bb.y * bv.x + (ab.x - bb.x) * bv.y) / e;
+        if (d >= 0) and (d <= 1) then begin
+          e:= (av.x * bv.y - av.y * bv.x);
+          if not IsZero(e) then begin
+            d:= (ab.y * av.x - ab.x * av.y + av.Y * bb.x - av.X * bb.y) / e;
+            if (d >= 0) and (d <= 1) then begin
+              Result:= true;
+              exit;
+            end;
+          end;
+        end;
+      end;
+    end;
+  end;
+end;
+
+procedure OffsetPolygon(var Poly: TPolygon; dx, dy: integer);
+var
+  i: integer;
+begin
+  for i:= 0 to high(Poly) do begin
+    inc(Poly[i].X, dx);
+    inc(Poly[i].Y, dy);
+  end;
 end;
 
 initialization
