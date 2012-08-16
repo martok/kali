@@ -114,7 +114,10 @@ begin
     Value:= b
   else begin
     p:= PChar(Data);
-    Value:= Unescape(AnsiExtractQuotedStr(p, sValueQuote));
+    if p^=sValueQuote then
+      Value:= Unescape(AnsiExtractQuotedStr(p, sValueQuote))
+    else
+      Value:= trim(Data);
   end;
 end;
 
@@ -424,7 +427,7 @@ begin
       if Assigned(va) then
         AddValueChecked(vn, va);
     end else
-      raise EConfigException.Create('Cannot Parse lLine');
+      raise EConfigException.Create('Cannot Parse Line: '+l);
   until eof;
 end;
 
