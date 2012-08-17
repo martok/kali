@@ -83,6 +83,11 @@ A chat client/server, also demoing the menu system. Has possibly the weirdest me
 structure ever and does no error handling at all, but should show the general idea
 of how to use the net subsystem.
 
+/example/complex
+----------------
+A more complex version of how a game could be structured, employing a "scene"-pattern
+to handle different views/UIs.
+
 
 Externals
 =========
