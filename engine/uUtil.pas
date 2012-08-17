@@ -37,6 +37,7 @@ function Polygon(Points: array of TPoint): TPolygon;
 function RectToPolygon(Rect: TRect): TPolygon;
 function BoundingRectangle(Poly: TPolygon): TRect;
 function PolyPolyIntersect(A, B: TPolygon): Boolean;
+function PolyCircleIntersect(A: TPolygon; B: TPoint; Radius: integer): Boolean;
 procedure OffsetPolygon(var Poly: TPolygon; dx, dy: integer);
 
 implementation
@@ -217,6 +218,37 @@ begin
       end;
     end;
   end;
+end;
+
+function PolyCircleIntersect(A: TPolygon; B: TPoint; Radius: integer): Boolean;
+var
+  i, k: integer;
+  ab, av, ab_b: TFPoint;
+  f, d, e: double;
+begin
+  for i:= 0 to high(A) do begin
+    ab.X:= A[i].X;
+    ab.Y:= A[i].Y;
+    k:= (i + 1) mod Length(A);
+    av.X:= A[k].X - ab.x;
+    av.Y:= A[k].Y - ab.Y;
+
+    ab_b.X:= b.X - ab.X;
+    ab_b.Y:= b.Y - ab.Y;
+    f:= sqrt(sqr(av.X) + sqr(av.Y));
+    d:= (ab_b.X * av.Y - ab_b.Y * av.x) / f;
+    if abs(d) < Radius then begin
+      //  |--  ab_b
+      //  d  ¯¯--__
+      //  |---e-----
+      e:= sqrt((sqr(ab_b.X)+sqr(ab_b.Y) - sqr(d)));
+      if (0<=e) and (e <= f ) then begin
+        Result:= true;
+        exit;
+      end;
+    end;
+  end;
+  Result:= false;
 end;
 
 procedure OffsetPolygon(var Poly: TPolygon; dx, dy: integer);
