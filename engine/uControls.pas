@@ -191,9 +191,9 @@ begin
             PtInRect(c.Position, MousePt) then begin
             Result:= true;
             c.FClicked:= true;
-            c.Click;
             if c is TInput then
               SetFocus(TInput(c));
+            c.Click;
             break;
           end else
             c.FClicked:= false;
