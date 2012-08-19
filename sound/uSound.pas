@@ -397,10 +397,21 @@ begin
     end;
   end;
   case FSound.Kind of
-    skBlock: t:= FSource.Offset;
-    skStream: t:= FStreamCopy.Offset;
+    skBlock: begin
+        t:= FSource.Offset;
+        if Assigned(FSource.Buffer) then
+          e:= FSource.Buffer.Length
+        else
+          e:= 0;
+      end;
+    skStream: begin
+        t:= FStreamCopy.Offset;
+        e:= FStreamCopy.Length;
+      end;
+  else
+    t:= -1;
+    e:= 0;
   end;
-  e:= 1000000;                                              //TODO
   gtarg:= FSetGain;
   if (FFadeIn > 0) then begin
     if (t <= FFadeIn) then

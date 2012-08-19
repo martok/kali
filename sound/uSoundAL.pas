@@ -84,12 +84,16 @@ type
   TALBuffer = class
   private
     FHandle: TALuint;
+    FLength: TALfloat;
+  protected
+    procedure ComputeLength(format: TALenum; size, freq: TALsizei);
   public
     constructor Create();
     destructor Destroy; override;
     property Handle: TALuint read FHandle;
     procedure LoadFromFile(FileName: string);
     procedure LoadFromStream(Stream: TStream); virtual; abstract;
+    property Length: TALfloat read FLength;
   end;
 
   TALBufferWAV = class(TALBuffer)
@@ -187,6 +191,7 @@ type
     procedure FinalizeStream; virtual; abstract;
     function GetOffset: TALfloat; virtual; abstract;
     procedure SetOffset(const Value: TALfloat); virtual; abstract;
+    function GetLength: TALFloat; virtual; abstract;
   public
     constructor Create(Filename: string); overload;
     constructor Create(Stream: TStream; OwnsStream: boolean); overload;
@@ -199,6 +204,7 @@ type
     property State: Integer read FState;
     property Stream: TStream read FStream;
     property Offset: TALfloat read GetOffset write SetOffset;
+    property Length: TALFloat read GetLength;
   end;
 
 function SoundAL: TOpenAL;
@@ -398,12 +404,29 @@ constructor TALBuffer.Create;
 begin
   inherited;
   alGenBuffers(1, @FHandle);
+  FLength:= 0;
 end;
 
 destructor TALBuffer.Destroy;
 begin
   alDeleteBuffers(1, @FHandle);
   inherited;
+end;
+
+procedure TALBuffer.ComputeLength(format: TALenum; size, freq: TALsizei);
+var
+  bps, samples: TALsizei;
+begin
+  case format of
+    AL_FORMAT_MONO8    :  bps:= 1;
+    AL_FORMAT_MONO16   :  bps:= 2;
+    AL_FORMAT_STEREO8  :  bps:= 2;
+    AL_FORMAT_STEREO16 :  bps:= 4;
+  else
+    bps:= 1;
+  end;
+  samples:= size div bps;
+  FLength:= samples / freq;
 end;
 
 procedure TALBuffer.LoadFromFile(FileName: string);
@@ -432,6 +455,7 @@ begin
   LoadWavStream(Stream, format, data, size, freq, loop);
   if Assigned(data) then begin
     alBufferData(Handle, format, data, size, freq);
+    ComputeLength(format, size, freq);
     alutUnloadWAV(format, data, size, freq);
   end; //TODO: error
 end;

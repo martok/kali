@@ -9,7 +9,6 @@ const
   OGG_BUFFER_SIZE = 4096 * 8;
 type
   TALBufferOGG = class(TALBuffer)
-  private
   public
     procedure LoadFromStream(Stream: TStream); override;
   end;
@@ -25,6 +24,7 @@ type
     procedure FinalizeStream; override;
     function GetOffset: Single; override;
     procedure SetOffset(const Value: Single); override;
+    function GetLength: Single; override;
   public
   end;
 
@@ -170,6 +170,7 @@ begin
   data:= nil;
   ovalLoadOggStream(Stream, format, data, size, freq, loop);
   alBufferData(Handle, format, data, size, freq);
+  ComputeLength(format, size, freq);
   ovalUnLoadOgg(format, data, size, freq);
 end;
 
@@ -221,6 +222,11 @@ end;
 procedure TALDecoderStreamOGG.SetOffset(const Value: Single);
 begin
   ov_time_seek(FFile, Value);
+end;
+
+function TALDecoderStreamOGG.GetLength: Single;
+begin
+  Result:= ov_time_total(FFile, -1);
 end;
 
 initialization
