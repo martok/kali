@@ -142,15 +142,10 @@ begin
   for i:= 1 to length(Value) do begin
     wc:= Value[i];
     case Ord(wc) of
-      $20,
-      //'"'
-      $22..$3c,
-      //'='
-      $3E..$5B,
-      //'\'
-      $5D..$7E: Result:= Result + wc;
+      Ord('\'),
+      $007F..$FFFF: Result:= Result + '\'+IntToHex(ord(wc),4);
     else
-      Result:= Result + '\'+IntToHex(ord(wc),4);
+      Result:= Result + wc;
     end;
   end;
 end;
